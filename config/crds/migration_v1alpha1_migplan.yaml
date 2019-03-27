@@ -38,6 +38,21 @@ spec:
               type: object
           type: object
         status:
+          properties:
+            validation:
+              properties:
+                invalid:
+                  type: boolean
+                reasons:
+                  items:
+                    type: string
+                  type: array
+              required:
+              - invalid
+              - reasons
+              type: object
+          required:
+          - validation
           type: object
   version: v1alpha1
 status:
