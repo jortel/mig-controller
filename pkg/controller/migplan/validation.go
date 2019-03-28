@@ -6,19 +6,54 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (r ReconcileMigPlan) validate(plan *migapi.MigPlan) error {
-	status := plan.Status.Validation
-	status.Reset()
-	r.validateStorage(plan)
-	return nil
+// Types
+const (
+	// Type
+	Ready = "Ready"
+	InvalidSourceClusterRef = "InvalidSourceClusterRef"
+	InvalidDestinationClusterRef = "InvalidDestinationClusterRef"
+	InvalidStorageRef = "InvalidStorageRef"
+	InvalidAssetCollectionRef = "InvalidAssetCollectionRef"
+	SourceClusterNotReady = "SourceClusterNotReady"
+	DestinationClusterNotReady = "DestinationClusterNotReady"
+	StorageNotReady = "StorageNotReady"
+	AssetCollectionNotReady = "AssetCollectionNotReady"
+)
+// Reasons
+const (
+	NotSet = "NotSet"
+	NotFound = "NotFound"
+)
+// Status
+const (
+	True = "True"
+	False = "False"
+)
+
+func (r ReconcileMigPlan) validate(plan *migapi.MigPlan) (error, int) {
+	total := 0
+	err, count := r.validateStorage(plan)
+	if err != nil {
+		return err, total
+	}
+	err = r.Update(context.TODO(), plan)
+	return err, count
 }
 
-func (r ReconcileMigPlan) validateStorage(plan *migapi.MigPlan) error {
-	// Reference:nil
-	status := plan.Status.Validation
+func (r ReconcileMigPlan) validateStorage(plan *migapi.MigPlan) (error, int) {
+	count := 0
+
+	plan.Status.ClearConditions(InvalidStorageRef, StorageNotReady)
+
+	// NotSet
 	if plan.Spec.MigStorageRef == nil {
-		status.Failed("Storage not specified.")
-		return nil
+		condition := migapi.Condition{
+			Type: InvalidStorageRef,
+			Status: True,
+			Reason: NotSet,
+		}
+		plan.Status.SetCondition(condition)
+		count++
 	}
 
 	// Exists
@@ -30,12 +65,26 @@ func (r ReconcileMigPlan) validateStorage(plan *migapi.MigPlan) error {
 	}
 	err := r.Get(context.TODO(), name, &storage)
 	if err != nil {
-		if storage.Status.Validation.Invalid {
-			status.Failed("Storage is invalid.")
+		// NotReady
+		_, ready := storage.Status.FindCondition(Ready)
+		if ready == nil {
+			condition := migapi.Condition{
+				Type: StorageNotReady,
+				Status: True,
+			}
+			plan.Status.SetCondition(condition)
+			count++
 		}
 	} else {
-		status.Failed("Storage not found.")
+		// NotFound
+		condition := migapi.Condition{
+			Type: InvalidStorageRef,
+			Status: True,
+			Reason: NotFound,
+		}
+		plan.Status.SetCondition(condition)
+		count++
 	}
 
-	return err
+	return err, count
 }

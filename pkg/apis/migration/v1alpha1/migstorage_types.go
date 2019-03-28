@@ -34,7 +34,7 @@ type MigStorageSpec struct {
 
 // MigStorageStatus defines the observed state of MigStorage
 type MigStorageStatus struct {
-	Validation ValidationStatus `json:"validation"`
+	ConditionContainer
 }
 
 // +genclient

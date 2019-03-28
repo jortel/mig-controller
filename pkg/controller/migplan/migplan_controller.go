@@ -116,9 +116,17 @@ func (r *ReconcileMigPlan) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	err = r.validate(plan)
+	err, count := r.validate(plan)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if count == 0 {
+		condition := migapi.Condition{
+			Type: Ready,
+			Status: True,
+		}
+		plan.Status.SetCondition(condition)
 	}
 
 	return reconcile.Result{}, nil

@@ -80,15 +80,15 @@ spec:
           properties:
             validation:
               properties:
-                invalid:
-                  type: boolean
-                reasons:
+                errors:
                   items:
                     type: string
                   type: array
+                invalid:
+                  type: boolean
               required:
               - invalid
-              - reasons
+              - errors
               type: object
           required:
           - validation
