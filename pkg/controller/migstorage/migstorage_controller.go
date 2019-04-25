@@ -19,6 +19,7 @@ package migstorage
 import (
 	"context"
 	migapi "github.com/fusor/mig-controller/pkg/apis/migration/v1alpha1"
+	"github.com/fusor/mig-controller/pkg/logging"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,11 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller")
+var log = logging.New("controller", "mStorage")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -82,7 +82,7 @@ type ReconcileMigStorage struct {
 // +kubebuilder:rbac:groups=migration.openshift.io,resources=migstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=migration.openshift.io,resources=migstorages/status,verbs=get;update;patch
 func (r *ReconcileMigStorage) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	log.Info("[mStorage] RECONCILE() ", "request", request)
+	log.Info("Reconcile(): %s", request)
 
 	// Fetch the MigStorage instance
 	storage := &migapi.MigStorage{}
