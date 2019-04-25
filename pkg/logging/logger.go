@@ -32,11 +32,10 @@ func (r *Logger) Error(err error, message string, values ...interface{}) {
 }
 
 func (r *Logger) format(level, message string, values ...interface{}) string {
-	m := fmt.Sprintf(
+	return fmt.Sprintf(
 		fmt.Sprintf(
 			"[%s][%s] ",
 			level,
 			r.context)+message,
 		values)
-	return m
 }
