@@ -55,6 +55,7 @@ const (
 // Validate the storage resource.
 // Returns error and the total error conditions set.
 func (r ReconcileMigStorage) validate(storage *migapi.MigStorage) (int, error) {
+	log.Info("Validate %s", "hello")
 	totalSet := 0
 
 	// Backup location provider.

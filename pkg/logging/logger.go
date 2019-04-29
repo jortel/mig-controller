@@ -12,30 +12,35 @@ const (
 )
 
 type Logger struct {
-	context string
-	logr.Logger
+	component string
+	wrapped   logr.Logger
 }
 
-func New(name, context string) Logger {
+func New(name, component string) Logger {
 	return Logger{
-		Logger:  log.Log.WithName(name),
-		context: context,
+		wrapped:   log.Log.WithName(name),
+		component: component,
+	}
+}
+
+func (r *Logger) V(level int) Logger {
+	wrapped :=  r.wrapped.V(level).(logr.Logger)
+	return Logger{
+		component: r.component,
+		wrapped:   wrapped,
 	}
 }
 
 func (r *Logger) Info(message string, values ...interface{}) {
-	r.Logger.Info(r.format(INFO, message, values))
+	r.wrapped.Info(r.format(INFO, message, values...))
 }
 
 func (r *Logger) Error(err error, message string, values ...interface{}) {
-	r.Logger.Error(err, r.format(ERROR, message, values))
+	r.wrapped.Error(err, r.format(ERROR, message, values...))
 }
 
 func (r *Logger) format(level, message string, values ...interface{}) string {
-	return fmt.Sprintf(
-		fmt.Sprintf(
-			"[%s][%s] ",
-			level,
-			r.context)+message,
-		values)
+	header := fmt.Sprintf("[%s][%s] ", level, r.component)
+	body := fmt.Sprintf(message, values...)
+	return header+body
 }
