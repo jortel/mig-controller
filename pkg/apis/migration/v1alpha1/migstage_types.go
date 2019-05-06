@@ -69,6 +69,10 @@ func init() {
 	SchemeBuilder.Register(&MigStage{}, &MigStageList{})
 }
 
+func (r *MigStage) GetCorrelationLabels() map[string]string {
+	return buildCorrelationLabels(r, r.UID)
+}
+
 // GetPlan - Get the migration plan.
 // Returns `nil` when the reference cannot be resolved.
 func (r *MigStage) GetPlan(client k8sclient.Client) (*MigPlan, error) {

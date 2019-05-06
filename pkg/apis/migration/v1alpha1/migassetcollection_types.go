@@ -55,3 +55,7 @@ type MigAssetCollectionList struct {
 func init() {
 	SchemeBuilder.Register(&MigAssetCollection{}, &MigAssetCollectionList{})
 }
+
+func (r *MigAssetCollection) GetCorrelationLabels() map[string]string {
+	return buildCorrelationLabels(r, r.UID)
+}

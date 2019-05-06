@@ -64,6 +64,10 @@ func init() {
 	SchemeBuilder.Register(&MigPlan{}, &MigPlanList{})
 }
 
+func (r *MigPlan) GetCorrelationLabels() map[string]string {
+	return buildCorrelationLabels(r, r.UID)
+}
+
 // GetSourceCluster - Get the referenced source cluster.
 // Returns `nil` when the reference cannot be resolved.
 func (r *MigPlan) GetSourceCluster(client k8sclient.Client) (*MigCluster, error) {

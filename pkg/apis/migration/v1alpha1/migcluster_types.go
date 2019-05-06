@@ -67,6 +67,10 @@ func init() {
 	SchemeBuilder.Register(&MigCluster{}, &MigClusterList{})
 }
 
+func (r *MigCluster) GetCorrelationLabels() map[string]string {
+	return buildCorrelationLabels(r, r.UID)
+}
+
 // Get the service account secret.
 // Returns `nil` when the reference cannot be resolved.
 func (m *MigCluster) GetServiceAccountSecret(client k8sclient.Client) (*kapi.Secret, error) {
