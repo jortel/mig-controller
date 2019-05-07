@@ -27,11 +27,11 @@ type Task struct {
 // Reconcile() Example:
 //
 // task := velerorunner.Task{
-//             Log: log,
-//             Client: r,
-//             Owner: migration,
-//             PlanResources: plan.GetPlanResources(),
-//         }
+//     Log: log,
+//     Client: r,
+//     Owner: migration,
+//     PlanResources: plan.GetPlanResources(),
+// }
 //
 // err := task.EnsureBackup()
 //
