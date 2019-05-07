@@ -13,16 +13,22 @@ import (
 
 var VeleroNamespace = "velero"
 
-
+// A Velero task that provides the complete backup & restore workflow.
+// Log - A controller's logger.
+// Client - A controller's (local) client.
+// Owner - A MigStage or MigMigration resource.
+// PlanResources - A PlanRefResources.
+// BackupResources - Resource types to be included in the backup.
+// Backup - A velero Backup created on the source cluster.
+// Restore - A velero Restore created on the destination cluster.
 type Task struct {
-	Log logr.Logger
-	Client k8sclient.Client
-	Owner migapi.MigResource  // Stage|Migration
-	PlanResources *migapi.PlanRefResources
+	Log             logr.Logger
+	Client          k8sclient.Client
+	Owner           migapi.MigResource
+	PlanResources   *migapi.PlanRefResources
 	BackupResources []string
-	Complete bool
-	Backup *velero.Backup
-	Restore *velero.Restore
+	Backup          *velero.Backup
+	Restore         *velero.Restore
 }
 
 // Reconcile() Example:
@@ -34,15 +40,16 @@ type Task struct {
 //     PlanResources: plan.GetPlanResources(),
 // }
 //
-// err := task.Run()
+// completed, err := task.Run()
 //
 
-func (t Task) Run() error {
-	t.Complete = false
+// Run the task.
+// Return true when run to completion.
+func (t Task) Run() (bool, error) {
 	// Backup
 	err := t.EnsureBackup()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if t.Backup.Status.Phase != "Completed" {
 		t.Log.Info(
@@ -51,7 +58,7 @@ func (t Task) Run() error {
 			t.Owner,
 			"backup",
 			t.Backup.Name)
-		return nil
+		return false, nil
 	}
 	t.Log.Info(
 		"Backup has completed.",
@@ -62,7 +69,7 @@ func (t Task) Run() error {
 
 	backup, err := t.GetReplicaatedBackup()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if backup == nil {
 		t.Log.Info(
@@ -71,12 +78,12 @@ func (t Task) Run() error {
 			t.Owner,
 			"backup",
 			t.Backup.Name)
-		return nil
+		return false, nil
 	}
 	// Restore
 	err = t.EnsureRestore()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if t.Restore.Status.Phase != "Completed" {
 		t.Log.Info(
@@ -85,7 +92,7 @@ func (t Task) Run() error {
 			t.Owner,
 			"restore",
 			t.Restore.Name)
-		return nil
+		return false, nil
 	}
 	t.Log.Info(
 		"Restore has completed.",
@@ -94,10 +101,11 @@ func (t Task) Run() error {
 		"restore",
 		t.Restore.Name)
 
-	t.Complete = true
-	return nil
+	return true, nil
 }
 
+// Ensure the backup on the source cluster has been created
+// and has the proper settings.
 func (t Task) EnsureBackup() error {
 	newBackup := t.BuildBackup()
 	foundBackup, err := t.GetBackup()
@@ -128,7 +136,7 @@ func (t Task) EqualsBackup(a, b *velero.Backup) bool {
 
 func (t Task) GetBackup() (*velero.Backup, error) {
 	cluster := t.PlanResources.SrcMigCluster
-	client, err  := cluster.GetClient(t.Client)
+	client, err := cluster.GetClient(t.Client)
 	labels := t.Owner.GetCorrelationLabels()
 	list := velero.BackupList{}
 	err = client.List(
@@ -148,7 +156,7 @@ func (t Task) GetBackup() (*velero.Backup, error) {
 func (t Task) GetBSL() (*velero.BackupStorageLocation, error) {
 	storage := t.PlanResources.MigStorage
 	cluster := t.PlanResources.SrcMigCluster
-	client, err  := cluster.GetClient(t.Client)
+	client, err := cluster.GetClient(t.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +171,7 @@ func (t Task) GetBSL() (*velero.BackupStorageLocation, error) {
 func (t Task) GetVSL() (*velero.VolumeSnapshotLocation, error) {
 	storage := t.PlanResources.MigStorage
 	cluster := t.PlanResources.SrcMigCluster
-	client, err  := cluster.GetClient(t.Client)
+	client, err := cluster.GetClient(t.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +186,8 @@ func (t Task) GetVSL() (*velero.VolumeSnapshotLocation, error) {
 func (t Task) BuildBackup() *velero.Backup {
 	backup := &velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: t.Owner.GetCorrelationLabels(),
-			GenerateName: t.Owner.GetName()+"-",
+			Labels:       t.Owner.GetCorrelationLabels(),
+			GenerateName: t.Owner.GetName() + "-",
 			Namespace:    VeleroNamespace,
 		},
 	}
@@ -194,16 +202,16 @@ func (t Task) UpdateBackup(backup *velero.Backup) error {
 		return err
 	}
 	backup.Spec = velero.BackupSpec{
-		StorageLocation:    backupLocation.Name,
-		VolumeSnapshotLocations: []string{"default-aws"},
-		TTL:                metav1.Duration{Duration: 720 * time.Hour},
-		IncludedNamespaces: namespaces,
-		ExcludedNamespaces: []string{},
-		IncludedResources:  t.BackupResources,
-		ExcludedResources:  []string{},
-		Hooks:              velero.BackupHooks{
-			                    Resources: []velero.BackupResourceHookSpec{},
-	                        },
+		StorageLocation:         backupLocation.Name,
+		VolumeSnapshotLocations: []string{"aws-default"},
+		TTL:                     metav1.Duration{Duration: 720 * time.Hour},
+		IncludedNamespaces:      namespaces,
+		ExcludedNamespaces:      []string{},
+		IncludedResources:       t.BackupResources,
+		ExcludedResources:       []string{},
+		Hooks: velero.BackupHooks{
+			Resources: []velero.BackupResourceHookSpec{},
+		},
 	}
 	return nil
 }
@@ -238,7 +246,7 @@ func (t Task) EqualsRestore(a, b *velero.Restore) bool {
 
 func (t Task) GetRestore() (*velero.Restore, error) {
 	cluster := t.PlanResources.DestMigCluster
-	client, err  := cluster.GetClient(t.Client)
+	client, err := cluster.GetClient(t.Client)
 	labels := t.Owner.GetCorrelationLabels()
 	list := velero.RestoreList{}
 	err = client.List(
@@ -258,8 +266,8 @@ func (t Task) GetRestore() (*velero.Restore, error) {
 func (t Task) BuildRestore() *velero.Restore {
 	restore := &velero.Restore{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: t.Owner.GetCorrelationLabels(),
-			GenerateName: t.Owner.GetName()+"-",
+			Labels:       t.Owner.GetCorrelationLabels(),
+			GenerateName: t.Owner.GetName() + "-",
 			Namespace:    VeleroNamespace,
 		},
 	}
@@ -277,7 +285,7 @@ func (t Task) UpdateRestore(restore *velero.Restore) {
 
 func (t Task) GetReplicaatedBackup() (*velero.Backup, error) {
 	cluster := t.PlanResources.DestMigCluster
-	client, err  := cluster.GetClient(t.Client)
+	client, err := cluster.GetClient(t.Client)
 	labels := t.Owner.GetCorrelationLabels()
 	list := velero.BackupList{}
 	err = client.List(

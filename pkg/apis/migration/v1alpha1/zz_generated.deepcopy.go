@@ -746,6 +746,11 @@ func (in *PlanRefResources) DeepCopyInto(out *PlanRefResources) {
 		*out = new(MigAssetCollection)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MigStorage != nil {
+		in, out := &in.MigStorage, &out.MigStorage
+		*out = new(MigStorage)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.SrcMigCluster != nil {
 		in, out := &in.SrcMigCluster, &out.SrcMigCluster
 		*out = new(MigCluster)

@@ -108,6 +108,14 @@ func (r *MigStorage) GetCorrelationLabels() map[string]string {
 	return buildCorrelationLabels(r, r.UID)
 }
 
+func (r *MigStorage) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *MigStorage) GetName() string {
+	return r.Name
+}
+
 // Determine if two BSLs are equal based on relevant fields in the Spec.
 // Returns `true` when equal.
 func (r *MigStorage) EqualsBSL(a, b *velero.BackupStorageLocation) bool {

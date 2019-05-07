@@ -68,6 +68,14 @@ func (r *MigPlan) GetCorrelationLabels() map[string]string {
 	return buildCorrelationLabels(r, r.UID)
 }
 
+func (r *MigPlan) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *MigPlan) GetName() string {
+	return r.Name
+}
+
 // GetSourceCluster - Get the referenced source cluster.
 // Returns `nil` when the reference cannot be resolved.
 func (r *MigPlan) GetSourceCluster(client k8sclient.Client) (*MigCluster, error) {

@@ -71,6 +71,14 @@ func (r *MigCluster) GetCorrelationLabels() map[string]string {
 	return buildCorrelationLabels(r, r.UID)
 }
 
+func (r *MigCluster) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *MigCluster) GetName() string {
+	return r.Name
+}
+
 // Get the service account secret.
 // Returns `nil` when the reference cannot be resolved.
 func (m *MigCluster) GetServiceAccountSecret(client k8sclient.Client) (*kapi.Secret, error) {

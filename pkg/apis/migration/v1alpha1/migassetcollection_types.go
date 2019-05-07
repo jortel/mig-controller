@@ -59,3 +59,11 @@ func init() {
 func (r *MigAssetCollection) GetCorrelationLabels() map[string]string {
 	return buildCorrelationLabels(r, r.UID)
 }
+
+func (r *MigAssetCollection) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *MigAssetCollection) GetName() string {
+	return r.Name
+}

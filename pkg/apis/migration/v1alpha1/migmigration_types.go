@@ -76,6 +76,14 @@ func (r *MigMigration) GetCorrelationLabels() map[string]string {
 	return buildCorrelationLabels(r, r.UID)
 }
 
+func (r *MigMigration) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *MigMigration) GetName() string {
+	return r.Name
+}
+
 // GetPlan - Get the migration plan.
 // Returns `nil` when the reference cannot be resolved.
 func (r *MigMigration) GetPlan(client k8sclient.Client) (*MigPlan, error) {
