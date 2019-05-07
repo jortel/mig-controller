@@ -17,7 +17,7 @@ var VeleroNamespace = "velero"
 type Task struct {
 	Log logr.Logger
 	Client k8sclient.Client
-	Owner migapi.MigResource
+	Owner migapi.MigResource  // Stage|Migration
 	PlanResources *migapi.PlanRefResources
 	BackupResources []string
 	Complete bool
