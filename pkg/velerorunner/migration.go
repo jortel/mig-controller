@@ -37,6 +37,12 @@ type Task struct {
 //
 // err := task.EnsureRestore()
 
+func (t Task) Run() {
+	// 1. Ensure backup.
+	// 2. Ensure restore (when backup complete)
+	// 3. Wait for restore to complete.
+}
+
 func (t Task) EnsureBackup() error {
 	newBackup := t.BuildBackup()
 	foundBackup, err := t.GetBackup()
