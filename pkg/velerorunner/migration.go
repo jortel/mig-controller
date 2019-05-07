@@ -20,6 +20,7 @@ type Task struct {
 	Owner migapi.MigResource
 	PlanResources *migapi.PlanRefResources
 	BackupResources []string
+	Complete bool
 	Backup *velero.Backup
 	Restore *velero.Restore
 }
@@ -37,6 +38,7 @@ type Task struct {
 //
 
 func (t Task) Run() error {
+	t.Complete = false
 	// Backup
 	err := t.EnsureBackup()
 	if err != nil {
@@ -58,7 +60,7 @@ func (t Task) Run() error {
 		"backup",
 		t.Backup.Name)
 
-	backup, err := t.GetDestBackup()
+	backup, err := t.GetReplicaatedBackup()
 	if err != nil {
 		return err
 	}
@@ -92,6 +94,7 @@ func (t Task) Run() error {
 		"restore",
 		t.Restore.Name)
 
+	t.Complete = true
 	return nil
 }
 
@@ -272,7 +275,7 @@ func (t Task) UpdateRestore(restore *velero.Restore) {
 	}
 }
 
-func (t Task) GetDestBackup() (*velero.Backup, error) {
+func (t Task) GetReplicaatedBackup() (*velero.Backup, error) {
 	cluster := t.PlanResources.DestMigCluster
 	client, err  := cluster.GetClient(t.Client)
 	labels := t.Owner.GetCorrelationLabels()
