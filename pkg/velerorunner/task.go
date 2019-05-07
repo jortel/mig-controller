@@ -19,8 +19,8 @@ var VeleroNamespace = "velero"
 // Owner - A MigStage or MigMigration resource.
 // PlanResources - A PlanRefResources.
 // BackupResources - Resource types to be included in the backup.
-// Backup - A velero Backup created on the source cluster.
-// Restore - A velero Restore created on the destination cluster.
+// Backup - A Backup created on the source cluster.
+// Restore - A Restore created on the destination cluster.
 type Task struct {
 	Log             logr.Logger
 	Client          k8sclient.Client
