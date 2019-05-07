@@ -20,17 +20,19 @@ type Task struct {
 	Owner migapi.MigResource
 	PlanResources *migapi.PlanRefResources
 	BackupResources []string
-	Namespace string
 	BackupName string
 	RestoreName string
 }
 
+// Reconcile() Example:
+//
 // task := velerorunner.Task{
 //             Log: log,
 //             Client: r,
 //             Owner: migration,
 //             PlanResources: plan.GetPlanResources(),
 //         }
+//
 // err := task.EnsureBackup()
 //
 // err := task.EnsureRestore()
@@ -117,7 +119,7 @@ func (t Task) BuildBackup() *velero.Backup {
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: t.Owner.GetCorrelationLabels(),
 			GenerateName: t.Owner.GetName()+"-",
-			Namespace:    t.Namespace,
+			Namespace:    VeleroNamespace,
 		},
 	}
 	t.UpdateBackup(backup)
@@ -198,7 +200,7 @@ func (t Task) BuildRestore() *velero.Restore {
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: t.Owner.GetCorrelationLabels(),
 			GenerateName: t.Owner.GetName()+"-",
-			Namespace:    t.Namespace,
+			Namespace:    VeleroNamespace,
 		},
 	}
 	t.UpdateRestore(restore)
