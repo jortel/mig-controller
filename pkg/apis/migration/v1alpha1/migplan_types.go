@@ -97,6 +97,7 @@ func (r *MigPlan) GetAssetCollection(client k8sclient.Client) (*MigAssetCollecti
 type PlanRefResources struct {
 	MigPlan        *MigPlan
 	MigAssets      *MigAssetCollection
+	MigStorage     *MigStorage
 	SrcMigCluster  *MigCluster
 	DestMigCluster *MigCluster
 
@@ -119,6 +120,15 @@ func (r *MigPlan) GetRefResources(client k8sclient.Client, logPrefix string) (*P
 		return nil, err
 	}
 	resources.MigAssets = migAssets
+
+	// MitStorage
+	storage, err := r.GetStorage(client)
+	if err != nil {
+		log.Info(fmt.Sprintf("[%s] Failed to GET MigAssetCollection referenced by MigStorage [%s/%s]",
+			logPrefix, r.Namespace, r.Name))
+		return nil, err
+	}
+	resources.MigStorage = storage
 
 	// SrcMigCluster
 	srcMigCluster, err := r.GetSourceCluster(client)

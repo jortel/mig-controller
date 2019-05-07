@@ -11,6 +11,8 @@ import (
 // MIG resource interface.
 type MigResource interface {
 	GetCorrelationLabels() map[string]string
+	GetNamespace() string
+	GetName() string
 }
 
 //
