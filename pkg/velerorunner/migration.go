@@ -15,7 +15,7 @@ var VeleroNamespace = "velero"
 
 
 type Task struct {
-	Log *logr.Logger
+	Log logr.Logger
 	Client k8sclient.Client
 	Owner migapi.MigResource
 	PlanResources *migapi.PlanRefResources
@@ -147,8 +147,21 @@ func (t Task) UpdateBackup(backup *velero.Backup) error {
 	return nil
 }
 
-
 func (t Task) EnsureRestore() error {
+	// Make sure velero has replicated the backup to the
+	// destination cluster.
+	backup, err := t.GetDestBackup()
+	if err != nil {
+		return err
+	}
+	if backup == nil {
+		t.Log.Info(
+			"Backup not yet replicated to destination.",
+			"name",
+			t.BackupName)
+		return nil
+	}
+	// Ensure Restore
 	newRestore := t.BuildRestore()
 	foundRestore, err := t.GetRestore()
 	if err != nil {
@@ -213,4 +226,23 @@ func (t Task) UpdateRestore(restore *velero.Restore) {
 		BackupName: t.BackupName,
 		RestorePVs: &restorePVs,
 	}
+}
+
+func (t Task) GetDestBackup() (*velero.Backup, error) {
+	cluster := t.PlanResources.DestMigCluster
+	client, err  := cluster.GetClient(t.Client)
+	labels := t.Owner.GetCorrelationLabels()
+	list := velero.BackupList{}
+	err = client.List(
+		context.TODO(),
+		k8sclient.MatchingLabels(labels),
+		&list)
+	if err != nil {
+		return nil, err
+	}
+	if len(list.Items) > 0 {
+		return &list.Items[0], nil
+	}
+
+	return nil, nil
 }
