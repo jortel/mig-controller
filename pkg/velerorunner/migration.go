@@ -44,7 +44,7 @@ func (t Task) Run() error {
 	}
 	if t.Backup.Status.Phase != "Completed" {
 		t.Log.Info(
-			"Backup not yet completed.",
+			"Waiting for backup to complete.",
 			"owner",
 			t.Owner,
 			"backup",
@@ -64,7 +64,7 @@ func (t Task) Run() error {
 	}
 	if backup == nil {
 		t.Log.Info(
-			"Backup not yet replicated to destination.",
+			"Waiting for backup to be replicated to the destination.",
 			"owner",
 			t.Owner,
 			"backup",
@@ -78,19 +78,19 @@ func (t Task) Run() error {
 	}
 	if t.Restore.Status.Phase != "Completed" {
 		t.Log.Info(
-			"Restore not yet completed.",
+			"Waiting for restore to complete.",
 			"owner",
 			t.Owner,
-			"backup",
-			t.Backup.Name)
+			"restore",
+			t.Restore.Name)
 		return nil
 	}
 	t.Log.Info(
 		"Restore has completed.",
 		"owner",
 		t.Owner,
-		"backup",
-		t.Backup.Name)
+		"restore",
+		t.Restore.Name)
 
 	return nil
 }
