@@ -20,8 +20,8 @@ type Task struct {
 	Owner migapi.MigResource
 	PlanResources *migapi.PlanRefResources
 	BackupResources []string
-	BackupName string
-	RestoreName string
+	Backup *velero.Backup
+	Restore *velero.Restore
 }
 
 // Reconcile() Example:
@@ -33,14 +33,66 @@ type Task struct {
 //     PlanResources: plan.GetPlanResources(),
 // }
 //
-// err := task.EnsureBackup()
+// err := task.Run()
 //
-// err := task.EnsureRestore()
 
-func (t Task) Run() {
-	// 1. Ensure backup.
-	// 2. Ensure restore (when backup complete)
-	// 3. Wait for restore to complete.
+func (t Task) Run() error {
+	// Backup
+	err := t.EnsureBackup()
+	if err != nil {
+		return err
+	}
+	if t.Backup.Status.Phase != "Completed" {
+		t.Log.Info(
+			"Backup not yet completed.",
+			"owner",
+			t.Owner,
+			"backup",
+			t.Backup.Name)
+		return nil
+	}
+	t.Log.Info(
+		"Backup has completed.",
+		"owner",
+		t.Owner,
+		"backup",
+		t.Backup.Name)
+
+	backup, err := t.GetDestBackup()
+	if err != nil {
+		return err
+	}
+	if backup == nil {
+		t.Log.Info(
+			"Backup not yet replicated to destination.",
+			"owner",
+			t.Owner,
+			"backup",
+			t.Backup.Name)
+		return nil
+	}
+	// Restore
+	err = t.EnsureRestore()
+	if err != nil {
+		return err
+	}
+	if t.Restore.Status.Phase != "Completed" {
+		t.Log.Info(
+			"Restore not yet completed.",
+			"owner",
+			t.Owner,
+			"backup",
+			t.Backup.Name)
+		return nil
+	}
+	t.Log.Info(
+		"Restore has completed.",
+		"owner",
+		t.Owner,
+		"backup",
+		t.Backup.Name)
+
+	return nil
 }
 
 func (t Task) EnsureBackup() error {
@@ -50,14 +102,14 @@ func (t Task) EnsureBackup() error {
 		return err
 	}
 	if foundBackup == nil {
-		t.BackupName = newBackup.Name
+		t.Backup = newBackup
 		err := t.Client.Create(context.TODO(), newBackup)
 		if err != nil {
 			return err
 		}
 	}
 	if !t.EqualsBackup(newBackup, foundBackup) {
-		t.BackupName = foundBackup.Name
+		t.Backup = foundBackup
 		t.UpdateBackup(foundBackup)
 		err := t.Client.Update(context.TODO(), foundBackup)
 		if err != nil {
@@ -154,34 +206,20 @@ func (t Task) UpdateBackup(backup *velero.Backup) error {
 }
 
 func (t Task) EnsureRestore() error {
-	// Make sure velero has replicated the backup to the
-	// destination cluster.
-	backup, err := t.GetDestBackup()
-	if err != nil {
-		return err
-	}
-	if backup == nil {
-		t.Log.Info(
-			"Backup not yet replicated to destination.",
-			"name",
-			t.BackupName)
-		return nil
-	}
-	// Ensure Restore
 	newRestore := t.BuildRestore()
 	foundRestore, err := t.GetRestore()
 	if err != nil {
 		return err
 	}
 	if foundRestore == nil {
-		t.RestoreName = newRestore.Name
+		t.Restore = newRestore
 		err := t.Client.Create(context.TODO(), newRestore)
 		if err != nil {
 			return err
 		}
 	}
 	if !t.EqualsRestore(newRestore, foundRestore) {
-		t.BackupName = foundRestore.Name
+		t.Restore = foundRestore
 		t.UpdateRestore(foundRestore)
 		err := t.Client.Update(context.TODO(), foundRestore)
 		if err != nil {
@@ -229,7 +267,7 @@ func (t Task) BuildRestore() *velero.Restore {
 func (t Task) UpdateRestore(restore *velero.Restore) {
 	restorePVs := true
 	restore.Spec = velero.RestoreSpec{
-		BackupName: t.BackupName,
+		BackupName: t.Backup.Name,
 		RestorePVs: &restorePVs,
 	}
 }
