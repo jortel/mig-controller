@@ -72,9 +72,10 @@ func TestConditions_BeginStagingConditions(t *testing.T) {
 	// Setup
 	conditions := Conditions{
 		List: []Condition{
-			{Type: "A", staged: true},
-			{Type: "B", staged: true},
-			{Type: "C", staged: true},
+			{Type: "A", Category: Error, staged: true},
+			{Type: "B", Category: Error, staged: true},
+			{Type: "C", Category: Error, staged: true},
+			{Type: "D", Category: Required, staged: true},
 		},
 	}
 
@@ -84,9 +85,10 @@ func TestConditions_BeginStagingConditions(t *testing.T) {
 	// Validation
 	g.Expect(conditions.staging).To(gomega.BeTrue())
 	g.Expect(conditions.List).To(gomega.Equal([]Condition{
-		{Type: "A", staged: false},
-		{Type: "B", staged: false},
-		{Type: "C", staged: false},
+		{Type: "A", Category: Error, staged: false},
+		{Type: "B", Category: Error, staged: false},
+		{Type: "C", Category: Error, staged: false},
+		{Type: "D", Category: Required, staged: true},
 	}))
 }
 

@@ -28,6 +28,11 @@ const (
 	Warn     = "Warn"
 	Required = "Required"
 )
+var ErrorConditions = []string{
+	Critical,
+	Error,
+	Warn,
+}
 
 // Condition
 // Type - The condition type.
@@ -90,14 +95,23 @@ type Conditions struct {
 }
 
 // Begin staging conditions.
-func (r *Conditions) BeginStagingConditions() {
+// By default, only the `ErrorConditions` will be staged.
+func (r *Conditions) BeginStagingConditions(category ...string) {
 	r.staging = true
+	if len(category) == 0 {
+		category = ErrorConditions
+	}
+	m := map[string]bool{}
+	for _, cat := range category {
+		m[cat] = true
+	}
 	if r.List == nil {
 		return
 	}
 	for index := range r.List {
 		condition := &r.List[index]
-		condition.staged = false
+		_, found := m[condition.Category]
+		condition.staged = !found
 	}
 }
 
