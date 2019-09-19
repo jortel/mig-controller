@@ -189,7 +189,7 @@ func (r *Conditions) FindCondition(cndType string) *Condition {
 }
 
 // Set (add/update) the specified condition to the collection.
-func (r *Conditions) SetCondition(condition Condition) {
+func (r *Conditions) SetCondition(condition Condition) *Condition {
 	if r.List == nil {
 		r.List = []Condition{}
 	}
@@ -198,8 +198,10 @@ func (r *Conditions) SetCondition(condition Condition) {
 	if found == nil {
 		condition.LastTransitionTime = metav1.NewTime(time.Now())
 		r.List = append(r.List, condition)
+		return &r.List[len(r.List)-1]
 	} else {
 		found.Update(condition)
+		return found
 	}
 }
 

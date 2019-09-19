@@ -165,11 +165,12 @@ func TestConditions_SetCondition(t *testing.T) {
 	}
 
 	// SetTest
-	conditions.SetCondition(condition)
-	LastTransitionTime := condition.LastTransitionTime
-	conditions.List[0].LastTransitionTime = now // for comparison in validation.
+	added := conditions.SetCondition(condition)
+	LastTransitionTime := added.LastTransitionTime
+	added.LastTransitionTime = now // for comparison in validation.
 
 	// Validation
+	g.Expect(added == &conditions.List[0]).To(gomega.BeTrue())
 	g.Expect(LastTransitionTime).NotTo(gomega.Equal(nil))
 	g.Expect(conditions.List).To(
 		gomega.Equal([]Condition{
@@ -185,9 +186,10 @@ func TestConditions_SetCondition(t *testing.T) {
 		}))
 
 	// UpdateTest - no change.
-	conditions.SetCondition(condition)
+	found := conditions.SetCondition(condition)
 
 	// Validation
+	g.Expect(found == &conditions.List[0]).To(gomega.BeTrue())
 	g.Expect(len(conditions.List)).To(gomega.Equal(1))
 	g.Expect(conditions.List).To(
 		gomega.Equal([]Condition{
@@ -448,3 +450,34 @@ func TestConditions_AppendingItems(t *testing.T) {
 	// Validation
 	g.Expect(conditions.List[0].Message).To(gomega.Equal("These things [Dog,Cat] not found."))
 }
+
+func TestConditions_AppendingItems2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup
+	conditions := Conditions{
+		List: []Condition{
+			{Type: "A", staged: true},
+			{Type: "B", staged: true},
+			{Type: "C", staged: true},
+		},
+	}
+
+	// Test
+	conditions.BeginStagingConditions()
+
+	for _, name := range []string{"Dog", "Cat"} {
+		condition := conditions.SetCondition(Condition{
+			Type:    "A",
+			Message: "These things [] not found.",
+			Items:   []string{},
+		})
+		condition.Items = append(condition.Items, name)
+	}
+
+	conditions.EndStagingConditions()
+
+	// Validation
+	g.Expect(conditions.List[0].Message).To(gomega.Equal("These things [Dog,Cat] not found."))
+}
+
