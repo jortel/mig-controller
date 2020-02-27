@@ -19,6 +19,7 @@ package discovery
 import (
 	"context"
 	migapi "github.com/konveyor/mig-controller/pkg/apis/migration/v1alpha1"
+	"github.com/konveyor/mig-controller/pkg/controller/discovery/auth"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/container"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/web"
@@ -49,6 +50,7 @@ func init() {
 	model.Log = &log
 	container.Log = &log
 	web.Log = &log
+	auth.Log = &log
 }
 
 func Add(mgr manager.Manager) error {
@@ -83,8 +85,6 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		web:       web,
 	}
 
-	web.Start()
-
 	return &reconciler
 }
 
@@ -98,6 +98,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		log.Trace(err)
 		return err
 	}
+	//
+	// Add watches.
 	err = c.Watch(
 		&source.Kind{
 			Type: &migapi.MigCluster{},
@@ -120,6 +122,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		log.Trace(err)
 		return err
 	}
+	//
+	// Add the `host` cluster.
+	cluster := &migapi.MigCluster{
+		Spec: migapi.MigClusterSpec{
+			IsHostCluster: true,
+		},
+	}
+	err = r.(*ReconcileDiscovery).container.Add(
+		cluster,
+		container.Collections{
+			&container.RoleBinding{},
+			&container.Role{},
+		})
+	//
+	// Start Web
+	r.(*ReconcileDiscovery).web.Start()
 
 	return nil
 }
@@ -154,7 +172,17 @@ func (r *ReconcileDiscovery) Reconcile(request reconcile.Request) (reconcile.Res
 	if !r.IsValid(cluster) {
 		return reconcile.Result{}, nil
 	}
-	err = r.container.Add(cluster)
+	err = r.container.Add(
+		cluster,
+		container.Collections{
+			&container.RoleBinding{},
+			&container.Role{},
+			&container.Namespace{},
+			&container.Service{},
+			&container.PVC{},
+			&container.Pod{},
+			&container.PV{},
+		})
 	if err != nil {
 		log.Trace(err)
 		return reQueue, nil
