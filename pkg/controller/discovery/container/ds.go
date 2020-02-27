@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"strings"
 	"time"
 )
 
@@ -46,6 +47,12 @@ type DataSource struct {
 	// lower than the threshold is redundant to changes made
 	// during collection reconciliation.
 	versionThreshold uint64
+}
+
+//
+// The DataSource name.
+func (r *DataSource) Name() string {
+	return strings.Join([]string{r.Cluster.Namespace, r.Cluster.Name}, "/")
 }
 
 //
