@@ -5,13 +5,17 @@ import (
 	"errors"
 	migapi "github.com/konveyor/mig-controller/pkg/apis/migration/v1alpha1"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 	"time"
 )
@@ -47,6 +51,9 @@ type DataSource struct {
 	// lower than the threshold is redundant to changes made
 	// during collection reconciliation.
 	versionThreshold uint64
+	// Heartbeat monitor.
+	// Monitor health of watches.
+	heartbeat HeartbeatMonitor
 }
 
 //
@@ -59,6 +66,9 @@ func (r *DataSource) Name() string {
 // Determine if the DataSource is `ready`.
 // The DataSource is `ready` when all of the collections are `ready`.
 func (r *DataSource) IsReady() bool {
+	if !r.heartbeat.Healthy() {
+		return false
+	}
 	for _, collection := range r.Collections {
 		if !collection.IsReady() {
 			return false
@@ -125,10 +135,8 @@ func (r *DataSource) Start(cluster *migapi.MigCluster) error {
 
 	Log.Info(
 		"DataSource Started.",
-		"ns",
-		r.Cluster.Namespace,
 		"name",
-		r.Cluster.Name,
+		r.Name(),
 		"connected",
 		connectDuration,
 		"reconciled",
@@ -179,6 +187,7 @@ func (r *DataSource) Create(m model.Model) {
 			Log.Info("channel send failed")
 		}
 	}()
+	r.heartbeat.Received()
 	r.eventChannel <- ModelEvent{}.Create(m)
 }
 
@@ -192,6 +201,7 @@ func (r *DataSource) Update(m model.Model) {
 			Log.Info("channel send failed")
 		}
 	}()
+	r.heartbeat.Received()
 	r.eventChannel <- ModelEvent{}.Update(m)
 }
 
@@ -205,6 +215,7 @@ func (r *DataSource) Delete(m model.Model) {
 			Log.Info("channel send failed")
 		}
 	}()
+	r.heartbeat.Received()
 	r.eventChannel <- ModelEvent{}.Delete(m)
 }
 
@@ -245,6 +256,14 @@ func (r *DataSource) buildManager(name string) error {
 		controller.Options{
 			Reconciler: r,
 		})
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	r.heartbeat = HeartbeatMonitor{
+		threshold: time.Second * 10,
+	}
+	err = r.heartbeat.AddWatch(dsController)
 	if err != nil {
 		Log.Trace(err)
 		return err
@@ -350,4 +369,57 @@ func (r ModelEvent) Delete(m model.Model) ModelEvent {
 	r.model = m
 	r.action = 0x04
 	return r
+}
+
+//
+// Heartbeat
+type HeartbeatMonitor struct {
+	threshold time.Duration
+	// Last observed heartbeat.
+	lastHeartbeat time.Time
+}
+
+//
+// Add required watches.
+func (r *HeartbeatMonitor) AddWatch(dsController controller.Controller) error {
+	return dsController.Watch(
+		&source.Kind{
+			Type: &v1.Node{},
+		},
+		&handler.EnqueueRequestForObject{},
+		r)
+}
+
+//
+// Heartbeat is healthy.
+func (r *HeartbeatMonitor) Healthy() bool {
+	if time.Since(r.lastHeartbeat) > r.threshold {
+		return false
+	}
+
+	return true
+}
+
+func (r *HeartbeatMonitor) Received() {
+	r.lastHeartbeat = time.Now()
+}
+
+func (r *HeartbeatMonitor) Create(e event.CreateEvent) bool {
+	r.Received()
+	return false
+}
+
+func (r *HeartbeatMonitor) Update(e event.UpdateEvent) bool {
+	r.Received()
+	return false
+}
+
+func (r *HeartbeatMonitor) Delete(e event.DeleteEvent) bool {
+	r.Received()
+	return false
+}
+
+func (r *HeartbeatMonitor) Generic(e event.GenericEvent) bool {
+	r.Received()
+	return false
 }

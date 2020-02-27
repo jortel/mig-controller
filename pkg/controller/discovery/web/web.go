@@ -3,16 +3,13 @@ package web
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/konveyor/mig-controller/pkg/controller/discovery/auth"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/container"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"github.com/konveyor/mig-controller/pkg/logging"
 	"github.com/konveyor/mig-controller/pkg/settings"
-	auth "k8s.io/api/authorization/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
 	"net/http"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sort"
 	"strconv"
@@ -92,52 +89,38 @@ func (w *WebServer) addRoutes(r *gin.Engine) {
 			},
 		},
 		ClusterHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		NsHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		PodHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		LogHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		PvHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		PvcHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		ServiceHandler{
-			ClusterScoped: ClusterScoped{
-				BaseHandler: BaseHandler{
-					container: w.Container,
-				},
+			BaseHandler: BaseHandler{
+				container: w.Container,
 			},
 		},
 		PlanHandler{
@@ -185,6 +168,12 @@ type BaseHandler struct {
 	token string
 	// The `page` parameter passed in the request.
 	page model.Page
+	// The cluster specified in the request.
+	cluster model.Cluster
+	// The DataSource.
+	ds *container.DataSource
+	// RBAC
+	rbac auth.RBAC
 }
 
 //
@@ -192,6 +181,7 @@ type BaseHandler struct {
 // Set the `token` and `page` fields using passed parameters.
 func (h *BaseHandler) Prepare(ctx *gin.Context) int {
 	Log.Reset()
+	h.setCluster(ctx)
 	status := h.setToken(ctx)
 	if status != http.StatusOK {
 		return status
@@ -200,8 +190,72 @@ func (h *BaseHandler) Prepare(ctx *gin.Context) int {
 	if status != http.StatusOK {
 		return status
 	}
+	status = h.setDs()
+	if status != http.StatusOK {
+		return status
+	}
+	h.cluster = h.ds.Cluster
+	h.rbac = auth.RBAC{
+		Client:  h.ds.Client,
+		Cluster: &h.cluster,
+		Token:   h.token,
+		Db:      h.container.Db,
+	}
 
 	return http.StatusOK
+}
+
+//
+// Find and set the `DataSource`.
+func (h *BaseHandler) setDs() int {
+	wait := time.Second * 30
+	poll := time.Microsecond * 100
+	for {
+		mark := time.Now()
+		if ds, found := h.container.GetDs(&h.cluster); found {
+			if ds.IsReady() {
+				h.ds = ds
+				return http.StatusOK
+			}
+		}
+		hasCluster, err := h.container.HasCluster(&h.cluster)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		if !hasCluster {
+			return http.StatusNotFound
+		}
+		if wait > 0 {
+			time.Sleep(poll)
+			wait -= time.Since(mark)
+		} else {
+			break
+		}
+	}
+
+	return http.StatusPartialContent
+}
+
+//
+// Set the cluster.
+func (h *BaseHandler) setCluster(ctx *gin.Context) {
+	namespace := ctx.Param("ns1")
+	cluster := ctx.Param("cluster")
+	if cluster == "" {
+		h.cluster = model.Cluster{
+			CR: model.CR{
+				Namespace: "",
+				Name:      "",
+			},
+		}
+	} else {
+		h.cluster = model.Cluster{
+			CR: model.CR{
+				Namespace: namespace,
+				Name:      cluster,
+			},
+		}
+	}
 }
 
 //
@@ -251,43 +305,6 @@ func (h *BaseHandler) setPage(ctx *gin.Context) int {
 
 	h.page = page
 	return http.StatusOK
-}
-
-//
-// Perform SAR.
-func (h *BaseHandler) allow(sar auth.SelfSubjectAccessReview) int {
-	restCfg, _ := config.GetConfig()
-	restCfg.BearerToken = h.token
-	codec := serializer.NewCodecFactory(scheme.Scheme)
-	gvk, err := apiutil.GVKForObject(&sar, scheme.Scheme)
-	if err != nil {
-		Log.Trace(err)
-		return http.StatusInternalServerError
-	}
-	restClient, err := apiutil.RESTClientForGVK(gvk, restCfg, codec)
-	if err != nil {
-		Log.Trace(err)
-		return http.StatusInternalServerError
-	}
-	var status int
-	post := restClient.Post()
-	post.Resource("selfsubjectaccessreviews")
-	post.Body(&sar)
-	reply := post.Do()
-	reply.StatusCode(&status)
-	switch status {
-	case http.StatusForbidden, http.StatusUnauthorized:
-		return status
-	case http.StatusCreated:
-		reply.Into(&sar)
-		if sar.Status.Allowed {
-			return http.StatusOK
-		}
-	default:
-		Log.Info("Unexpected SAR reply", "status", status)
-	}
-
-	return http.StatusForbidden
 }
 
 //
@@ -360,6 +377,9 @@ func (h RootNsHandler) List(ctx *gin.Context) {
 		return
 	}
 	for _, m := range clusters {
+		if m.Namespace == "" {
+			continue
+		}
 		if _, found := set[m.Namespace]; !found {
 			list = append(list, m.Namespace)
 			set[m.Namespace] = true

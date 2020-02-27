@@ -38,6 +38,8 @@ const (
 	ALL       = "*"
 	Namespace = "namespaces"
 	PV        = "persistentvolumes"
+	PVC       = "persistentvolumeclaims"
+	Service   = "services"
 	Pod       = "pods"
 	PodLog    = "pods/log"
 )
