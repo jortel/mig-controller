@@ -6,12 +6,6 @@ import (
 	rbac "k8s.io/api/rbac/v1beta1"
 )
 
-const (
-	SubjectSa    = "ServiceAccount"
-	SubjectUser  = "User"
-	SubjectGroup = "Group"
-)
-
 var RoleBindingBySubjectSQL = `
 SELECT
   a.pk,

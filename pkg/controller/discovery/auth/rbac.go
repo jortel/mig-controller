@@ -281,13 +281,13 @@ func (r *RBAC) buildRoleBindings() error {
 			return nil
 		}
 		subject = model.Subject{
-			Kind: model.SubjectUser,
+			Kind: rbac.UserKind,
 			Name: r.user,
 		}
 	}
 	if r.sa.Name != "" {
 		subject = model.Subject{
-			Kind:      model.SubjectSa,
+			Kind:      rbac.ServiceAccountKind,
 			Namespace: r.sa.Namespace,
 			Name:      r.sa.Name,
 		}
@@ -303,7 +303,7 @@ func (r *RBAC) buildRoleBindings() error {
 	}
 	for _, group := range r.groups {
 		subject = model.Subject{
-			Kind: model.SubjectGroup,
+			Kind: rbac.GroupKind,
 			Name: group,
 		}
 		roleBindings, err := model.RoleBinding{
