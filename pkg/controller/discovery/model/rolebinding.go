@@ -13,10 +13,11 @@ SELECT
   a.version,
   a.namespace,
   a.name,
-  a.role,
-  a.cluster
+  a.object,
+  a.cluster,
+  a.role
 FROM RoleBinding a,
-     RoleBindingSubject b
+     Subject b
 WHERE
   a.cluster = :cluster AND
   b.parent = a.pk AND
@@ -116,13 +117,13 @@ func (m RoleBinding) ListBySubject(db DB, subject Subject) ([]*RoleBinding, erro
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		rb := RoleBinding{}
-		err := cursor.Scan(rb)
+		rb := &RoleBinding{}
+		err := Table{db}.Scan(cursor, rb)
 		if err != nil {
 			Log.Trace(err)
 			return nil, err
 		}
-		list = append(list, &rb)
+		list = append(list, rb)
 	}
 
 	return list, nil

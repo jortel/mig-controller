@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-// Cluster-scoped route roots.
+// Cluster route roots.
 const (
 	ClustersRoot = Root + "/clusters"
 	ClusterRoot  = ClustersRoot + "/:cluster"
