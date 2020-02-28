@@ -116,7 +116,7 @@ func (r *DataSource) Start(cluster *migapi.MigCluster) error {
 	}
 	connectDuration := time.Since(mark)
 	mark = time.Now()
-	err = r.buildManager(cluster.Name)
+	err = r.buildManager()
 	if err != nil {
 		Log.Trace(err)
 		return err
@@ -243,7 +243,7 @@ func (r *DataSource) buildClient(cluster *migapi.MigCluster) error {
 
 //
 // Build the k8s manager.
-func (r *DataSource) buildManager(name string) error {
+func (r *DataSource) buildManager() error {
 	var err error
 	r.manager, err = manager.New(r.RestCfg, manager.Options{})
 	if err != nil {
@@ -251,7 +251,7 @@ func (r *DataSource) buildManager(name string) error {
 		return err
 	}
 	dsController, err := controller.New(
-		name,
+		"DataSource",
 		r.manager,
 		controller.Options{
 			Reconciler: r,

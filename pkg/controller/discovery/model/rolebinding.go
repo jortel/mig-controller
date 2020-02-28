@@ -154,28 +154,62 @@ func (m *RoleBinding) Get(db DB) error {
 // Insert the model into the DB.
 func (m *RoleBinding) Insert(db DB) error {
 	m.SetPk()
-	return Table{db}.Insert(m)
+	err := Table{db}.Insert(m)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	err = m.addSubjects(db)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+
+	return nil
 }
 
 //
 // Update the model in the DB.
 func (m *RoleBinding) Update(db DB) error {
 	m.SetPk()
-	return Table{db}.Update(m)
+	err := Table{db}.Update(m)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	err = m.updateSubjects(db)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+
+	return nil
 }
 
 //
 // Delete the model in the DB.
 func (m *RoleBinding) Delete(db DB) error {
 	m.SetPk()
-	return Table{db}.Delete(m)
+	m.SetPk()
+	err := Table{db}.Delete(m)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	err = m.deleteSubjects(db)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+
+	return nil
 }
 
 //
 // Insert role-binding/subject in the DB.
 func (m *RoleBinding) addSubjects(db DB) error {
 	for _, subject := range m.subjects {
-		m := Subject{
+		m := &Subject{
 			Parent: m.PK,
 		}
 		m.With(&subject)
@@ -192,7 +226,7 @@ func (m *RoleBinding) addSubjects(db DB) error {
 //
 // Delete role-binding/users in the DB.
 func (m *RoleBinding) deleteSubjects(db DB) error {
-	err := Table{db}.Delete(Subject{Parent: m.PK})
+	err := Table{db}.Delete(&Subject{Parent: m.PK})
 	if err != nil {
 		Log.Trace(err)
 		return err
