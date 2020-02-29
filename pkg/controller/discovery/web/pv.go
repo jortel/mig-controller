@@ -156,6 +156,10 @@ type PV struct {
 	Object *v1.PersistentVolume `json:"object,omitempty"`
 }
 
+func (n *PV) Path() string {
+	return PvRoot
+}
+
 //
 // PV collection REST resource.
 type PvList struct {
@@ -163,4 +167,8 @@ type PvList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []PV `json:"resources"`
+}
+
+func (n *PvList) Path() string {
+	return PvsRoot
 }

@@ -157,6 +157,10 @@ type PVC struct {
 	Object *v1.PersistentVolumeClaim `json:"object,omitempty"`
 }
 
+func (n *PVC) Path() string {
+	return PvcRoot
+}
+
 //
 // PVC collection REST resource.
 type PvcList struct {
@@ -164,4 +168,8 @@ type PvcList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []PVC `json:"resources"`
+}
+
+func (n *PvcList) Path() string {
+	return PvcsRoot
 }

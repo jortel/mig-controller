@@ -389,6 +389,10 @@ type Pod struct {
 	Object *v1.Pod `json:"object,omitempty"`
 }
 
+func (n *Pod) Path() string {
+	return PodRoot
+}
+
 //
 // Pod collection REST resource.
 type PodList struct {
@@ -396,4 +400,8 @@ type PodList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []Pod `json:"resources"`
+}
+
+func (n *PodList) Path() string {
+	return PodsRoot
 }

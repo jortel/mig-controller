@@ -292,6 +292,10 @@ type Plan struct {
 	Object *migapi.MigPlan `json:"object,omitempty"`
 }
 
+func (n *Plan) Path() string {
+	return PlanRoot
+}
+
 //
 // Plan collection REST resource.
 type PlanList struct {
@@ -299,6 +303,10 @@ type PlanList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []Plan `json:"resources"`
+}
+
+func (n *PlanList) Path() string {
+	return PlansRoot
 }
 
 //

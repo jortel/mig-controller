@@ -138,7 +138,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 //
 // Get a specific namespace on a cluster.
 func (h NsHandler) Get(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, h.cluster.Namespace)
+	ctx.Status(http.StatusMethodNotAllowed)
 }
 
 // Namespace REST resource
@@ -157,6 +157,10 @@ type Namespace struct {
 	PvcCount int64 `json:"pvcCount"`
 }
 
+func (n *Namespace) Path() string {
+	return NamespaceRoot
+}
+
 //
 // NS collection REST resource.
 type NamespaceList struct {
@@ -164,4 +168,8 @@ type NamespaceList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []Namespace `json:"resources"`
+}
+
+func (n *NamespaceList) Path() string {
+	return NamespacesRoot
 }

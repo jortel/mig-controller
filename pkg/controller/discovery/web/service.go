@@ -157,6 +157,10 @@ type Service struct {
 	Object *v1.Service `json:"object,omitempty"`
 }
 
+func (n *Service) Path() string {
+	return ServiceRoot
+}
+
 //
 // Service collection REST resource.
 type ServiceList struct {
@@ -164,4 +168,8 @@ type ServiceList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []Service `json:"resources"`
+}
+
+func (n *ServiceList) Path() string {
+	return ServicesRoot
 }

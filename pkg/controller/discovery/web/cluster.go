@@ -135,6 +135,10 @@ type Cluster struct {
 	Object *migapi.MigCluster `json:"object,omitempty"`
 }
 
+func (n *Cluster) Path() string {
+	return ClusterRoot
+}
+
 //
 // Cluster collection REST resource.
 type ClusterList struct {
@@ -142,4 +146,8 @@ type ClusterList struct {
 	Count int64 `json:"count"`
 	// List of resources.
 	Items []Cluster `json:"resources"`
+}
+
+func (n *ClusterList) Path() string {
+	return ClustersRoot
 }
