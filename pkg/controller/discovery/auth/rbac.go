@@ -176,6 +176,8 @@ type RBAC struct {
 	groups []string
 	// RoleBindings for token.
 	roleBindings []*model.RoleBinding
+	// Roles for role-bindings.
+	roles map[string]*model.Role
 	// The token has been authenticated.
 	authenticated bool
 	// The role-bindings have been loaded.
@@ -200,8 +202,8 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 	}
 	request.expand()
 	for _, rb := range r.roleBindings {
-		role, err := r.getRole(rb)
-		if err != nil {
+		role, found := r.roles[rb.Pk()]
+		if !found {
 			continue
 		}
 		if rb.Namespace == "" || rb.Namespace == request.Namespace {
@@ -212,37 +214,6 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 	}
 
 	return false, nil
-}
-
-//
-// Get the role referenced in the binding.
-func (r *RBAC) getRole(rb *model.RoleBinding) (*model.Role, error) {
-	ref := rb.DecodeRole()
-	role := &model.Role{
-		Base: model.Base{
-			Cluster:   rb.Cluster,
-			Namespace: rb.Namespace,
-			Name:      ref.Name,
-		},
-	}
-	err := role.Get(r.Db)
-	if err == sql.ErrNoRows {
-		role = &model.Role{
-			Base: model.Base{
-				Cluster:   rb.Cluster,
-				Name:      ref.Name,
-			},
-		}
-		err = role.Get(r.Db)
-	}
-	if err != nil {
-		role = nil
-		if err == sql.ErrNoRows {
-			Log.Trace(err)
-		}
-	}
-
-	return role, err
 }
 
 //
@@ -272,6 +243,11 @@ func (r *RBAC) load() error {
 		return err
 	}
 	err = r.buildRoleBindings()
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	err = r.buildRoles()
 	if err != nil {
 		Log.Trace(err)
 		return err
@@ -313,7 +289,7 @@ func (r *RBAC) authenticate() error {
 		r.user = user.Username
 	}
 
-	Log.Info("RBAC (authenticate):", "duration", time.Since(mark))
+	Log.Info("RBAC: authenticate.", "duration", time.Since(mark))
 
 	return nil
 }
@@ -323,6 +299,7 @@ func (r *RBAC) authenticate() error {
 func (r *RBAC) buildRoleBindings() error {
 	var subject model.Subject
 	var err error
+	mark := time.Now()
 	if !r.authenticated {
 		return nil
 	}
@@ -370,5 +347,78 @@ func (r *RBAC) buildRoleBindings() error {
 		}
 	}
 
+	Log.Info("RBAC: build role-bindings.", "duration", time.Since(mark))
+
 	return nil
+}
+
+//
+// Build `roles`.
+func (r *RBAC) buildRoles() error {
+	mark := time.Now()
+	r.roles = map[string]*model.Role{}
+	for _, rb := range r.roleBindings {
+		ref := rb.DecodeRole()
+		role := &model.Role{
+			Base: model.Base{
+				Cluster:   rb.Cluster,
+				Namespace: rb.Namespace,
+				Name:      ref.Name,
+			},
+		}
+		err := role.Get(r.Db)
+		if err == sql.ErrNoRows {
+			role = &model.Role{
+				Base: model.Base{
+					Cluster:   rb.Cluster,
+					Name:      ref.Name,
+				},
+			}
+			err = role.Get(r.Db)
+		}
+		if err != nil {
+			role = nil
+			if err == sql.ErrNoRows {
+				Log.Trace(err)
+			}
+		}
+		if err == nil {
+			r.roles[rb.Pk()] = role
+		}
+	}
+
+	Log.Info("RBAC: build roles.", "duration", time.Since(mark))
+
+	return nil
+}
+
+//
+// Get the role referenced in the binding.
+func (r *RBAC) getRole(rb *model.RoleBinding) (*model.Role, error) {
+	ref := rb.DecodeRole()
+	role := &model.Role{
+		Base: model.Base{
+			Cluster:   rb.Cluster,
+			Namespace: rb.Namespace,
+			Name:      ref.Name,
+		},
+	}
+	err := role.Get(r.Db)
+	if err == sql.ErrNoRows {
+		role = &model.Role{
+			Base: model.Base{
+				Cluster:   rb.Cluster,
+				Name:      ref.Name,
+			},
+		}
+		err = role.Get(r.Db)
+	}
+	if err != nil {
+		role = nil
+		if err == sql.ErrNoRows {
+			Log.Trace(err)
+		}
+	}
+
+	return role, err
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"k8s.io/api/core/v1"
 	"net/http"
+	"time"
 )
 
 const (
@@ -73,14 +74,17 @@ func (h NsHandler) List(ctx *gin.Context) {
 	content := NamespaceList{
 		Count: count,
 	}
+	duration := time.Duration(0)
 	for _, m := range list {
 		request.Namespace = m.Name
+		mark := time.Now()
 		allow, err := h.rbac.Allow(request)
 		if err != nil {
 			Log.Trace(err)
 			ctx.Status(http.StatusInternalServerError)
 			return
 		}
+		duration += time.Since(mark)
 		if !allow {
 			continue
 		}
@@ -132,6 +136,8 @@ func (h NsHandler) List(ctx *gin.Context) {
 				PodCount:     podCount,
 			})
 	}
+
+	Log.Info("NS List", "auth", duration)
 
 	ctx.JSON(http.StatusOK, content)
 }
