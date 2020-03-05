@@ -83,17 +83,22 @@ func (r *Request) expand() {
 //
 // Apply the rule to the matrix.
 func (r *Request) apply(rule *rbac.PolicyRule) {
-	matrix := Matrix{}
+	ruleMatrix := Matrix{}
 	for _, resource := range rule.Resources {
 		for _, verb := range rule.Verbs {
-			matrix = append(matrix, MxItem{resource: resource, verb: verb})
+			ruleMatrix = append(
+				ruleMatrix,
+				MxItem{
+					resource: resource,
+					verb:     verb,
+				})
 		}
 	}
 	for i := range r.matrix {
-		for _, m2 := range matrix {
-			m := &r.matrix[i]
-			if !m.matched {
-				m.match(&m2)
+		needed := &r.matrix[i]
+		for _, m := range ruleMatrix {
+			if !needed.matched {
+				needed.match(&m)
 			}
 		}
 	}
@@ -118,18 +123,38 @@ type Matrix = []MxItem
 //
 // A matrix item.
 type MxItem struct {
+	// Resource kind.
 	resource string
-	verb     string
-	matched  bool
+	// Verb
+	verb string
+	// Has been matched.
+	matched bool
 }
 
 //
 // Match another matrix item.
-func (m *MxItem) match(m2 *MxItem) {
-	if m.resource == ANY || m2.resource == ANY || m.resource == m2.resource {
-		if m.verb == ANY || m2.verb == ANY || m.verb == m2.verb {
-			m.matched = true
+func (needed *MxItem) match(rule *MxItem) {
+	matchVerb := func() {
+		if needed.verb == ALL {
+			if rule.verb == ALL {
+				needed.matched = true
+			}
+			return
 		}
+		if needed.verb == rule.verb || rule.verb == ANY {
+			needed.matched = true
+			return
+		}
+	}
+	if needed.resource == ALL {
+		if rule.resource == ALL {
+			matchVerb()
+		}
+		return
+	}
+	if needed.resource == rule.resource || rule.resource == ANY {
+		matchVerb()
+		return
 	}
 }
 
@@ -175,15 +200,7 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 	}
 	request.expand()
 	for _, rb := range r.roleBindings {
-		ref := rb.DecodeRole()
-		role := &model.Role{
-			Base: model.Base{
-				Cluster:   rb.Cluster,
-				Namespace: rb.Namespace,
-				Name:      ref.Name,
-			},
-		}
-		err := role.Get(r.Db)
+		role, err := r.getRole(rb)
 		if err != nil {
 			continue
 		}
@@ -195,6 +212,37 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 	}
 
 	return false, nil
+}
+
+//
+// Get the role referenced in the binding.
+func (r *RBAC) getRole(rb *model.RoleBinding) (*model.Role, error) {
+	ref := rb.DecodeRole()
+	role := &model.Role{
+		Base: model.Base{
+			Cluster:   rb.Cluster,
+			Namespace: rb.Namespace,
+			Name:      ref.Name,
+		},
+	}
+	err := role.Get(r.Db)
+	if err == sql.ErrNoRows {
+		role = &model.Role{
+			Base: model.Base{
+				Cluster:   rb.Cluster,
+				Name:      ref.Name,
+			},
+		}
+		err = role.Get(r.Db)
+	}
+	if err != nil {
+		role = nil
+		if err == sql.ErrNoRows {
+			Log.Trace(err)
+		}
+	}
+
+	return role, err
 }
 
 //
@@ -270,6 +318,8 @@ func (r *RBAC) authenticate() error {
 	return nil
 }
 
+//
+// Build the list of granted role-bindings.
 func (r *RBAC) buildRoleBindings() error {
 	var subject model.Subject
 	var err error

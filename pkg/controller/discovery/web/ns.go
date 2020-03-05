@@ -60,7 +60,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 		return
 	}
 	request := &auth.Request{
-		Resources: []string{auth.ANY},
+		Resources: []string{auth.Pod},
 		Verbs: []string{
 			auth.LIST,
 			auth.GET,
@@ -74,6 +74,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 		Count: count,
 	}
 	for _, m := range list {
+		request.Namespace = m.Name
 		allow, err := h.rbac.Allow(request)
 		if err != nil {
 			Log.Trace(err)
