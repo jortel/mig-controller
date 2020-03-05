@@ -110,18 +110,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		log.Trace(err)
 		return err
 	}
-	err = c.Watch(
-		&source.Kind{
-			Type: &migapi.MigPlan{},
-		},
-		&handler.EnqueueRequestForObject{},
-		&PlanPredicate{
-			Container: r.(*ReconcileDiscovery).container,
-		})
-	if err != nil {
-		log.Trace(err)
-		return err
-	}
 	//
 	// Add the `host` cluster.
 	cluster := &migapi.MigCluster{
@@ -134,6 +122,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		container.Collections{
 			&container.RoleBinding{},
 			&container.Role{},
+			&container.Plan{},
 		})
 	//
 	// Start Web
@@ -248,75 +237,5 @@ func (r *ClusterPredicate) Delete(e event.DeleteEvent) bool {
 }
 
 func (r *ClusterPredicate) Generic(e event.GenericEvent) bool {
-	return false
-}
-
-//
-// Plan predicate
-type PlanPredicate struct {
-	Container *container.Container
-}
-
-func (r PlanPredicate) Create(e event.CreateEvent) bool {
-	log.Reset()
-	object, cast := e.Object.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	plan := model.Plan{}
-	plan.With(object)
-	err := plan.Insert(r.Container.Db)
-	if err != nil {
-		log.Trace(err)
-	}
-
-	return false
-}
-
-func (r PlanPredicate) Update(e event.UpdateEvent) bool {
-	log.Reset()
-	o, cast := e.ObjectOld.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	n, cast := e.ObjectNew.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	changed := !reflect.DeepEqual(
-		o.Spec.SrcMigClusterRef,
-		n.Spec.SrcMigClusterRef) ||
-		!reflect.DeepEqual(
-			o.Spec.DestMigClusterRef,
-			n.Spec.DestMigClusterRef)
-	if changed {
-		plan := model.Plan{}
-		plan.With(n)
-		err := plan.Update(r.Container.Db)
-		if err != nil {
-			log.Trace(err)
-		}
-	}
-
-	return false
-}
-
-func (r *PlanPredicate) Delete(e event.DeleteEvent) bool {
-	log.Reset()
-	object, cast := e.Object.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	plan := model.Plan{}
-	plan.With(object)
-	err := plan.Delete(r.Container.Db)
-	if err != nil {
-		log.Trace(err)
-	}
-
-	return false
-}
-
-func (r *PlanPredicate) Generic(e event.GenericEvent) bool {
 	return false
 }
