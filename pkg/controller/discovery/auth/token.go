@@ -10,7 +10,7 @@ import (
 // Global cache.
 var tokenCache = TokenCache{
 	content: map[string]*CachedToken{},
-	ttl:     time.Second * 15,
+	ttl:     time.Second * 10,
 }
 
 //
