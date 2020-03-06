@@ -59,13 +59,15 @@ const (
 //
 // RBAC request.
 type Request struct {
-	// The k8s API resource.
+	// The k8s API groups.
+	Groups []string
+	// Resources.
 	Resources []string
-	// The namespace.
+	// Namespace (optional).
 	Namespace string
 	// Verbs
 	Verbs []string
-	// Matrix of expand the Resources and Verbs
+	// Matrix of expanded Groups, Resources and Verbs
 	matrix Matrix
 }
 
@@ -73,9 +75,17 @@ type Request struct {
 // Expand the Resources and Verbs into the `matrix`.
 func (r *Request) expand() {
 	r.matrix = Matrix{}
-	for _, resource := range r.Resources {
-		for _, verb := range r.Verbs {
-			r.matrix = append(r.matrix, MxItem{resource: resource, verb: verb})
+	for _, group := range r.Groups {
+		for _, resource := range r.Resources {
+			for _, verb := range r.Verbs {
+				r.matrix = append(
+					r.matrix,
+					MxItem{
+						group:    group,
+						resource: resource,
+						verb:     verb,
+					})
+			}
 		}
 	}
 }
@@ -84,14 +94,17 @@ func (r *Request) expand() {
 // Apply the rule to the matrix.
 func (r *Request) apply(rule *rbac.PolicyRule) {
 	ruleMatrix := Matrix{}
-	for _, resource := range rule.Resources {
-		for _, verb := range rule.Verbs {
-			ruleMatrix = append(
-				ruleMatrix,
-				MxItem{
-					resource: resource,
-					verb:     verb,
-				})
+	for _, group := range rule.APIGroups {
+		for _, resource := range rule.Resources {
+			for _, verb := range rule.Verbs {
+				ruleMatrix = append(
+					ruleMatrix,
+					MxItem{
+						group:    group,
+						resource: resource,
+						verb:     verb,
+					})
+			}
 		}
 	}
 	for i := range r.matrix {
@@ -123,6 +136,8 @@ type Matrix = []MxItem
 //
 // A matrix item.
 type MxItem struct {
+	// API group.
+	group string
 	// Resource kind.
 	resource string
 	// Verb
@@ -146,16 +161,32 @@ func (needed *MxItem) match(rule *MxItem) {
 			return
 		}
 	}
-	if needed.resource == ALL {
-		if rule.resource == ALL {
-			matchVerb()
+	matchResource := func() {
+		if needed.resource == ALL {
+			if rule.resource == ALL {
+				matchVerb()
+			}
+			return
 		}
-		return
+		if needed.resource == rule.resource || rule.resource == ANY {
+			matchVerb()
+			return
+		}
 	}
-	if needed.resource == rule.resource || rule.resource == ANY {
-		matchVerb()
-		return
+	matchGroup := func() {
+		if needed.group == ALL {
+			if rule.group == ALL {
+				matchResource()
+			}
+			return
+		}
+		if needed.group == rule.group || rule.group == ANY {
+			matchResource()
+			return
+		}
 	}
+
+	matchGroup()
 }
 
 //
@@ -370,8 +401,8 @@ func (r *RBAC) buildRoles() error {
 		if err == sql.ErrNoRows {
 			role = &model.Role{
 				Base: model.Base{
-					Cluster:   rb.Cluster,
-					Name:      ref.Name,
+					Cluster: rb.Cluster,
+					Name:    ref.Name,
 				},
 			}
 			err = role.Get(r.Db)
@@ -407,8 +438,8 @@ func (r *RBAC) getRole(rb *model.RoleBinding) (*model.Role, error) {
 	if err == sql.ErrNoRows {
 		role = &model.Role{
 			Base: model.Base{
-				Cluster:   rb.Cluster,
-				Name:      ref.Name,
+				Cluster: rb.Cluster,
+				Name:    ref.Name,
 			},
 		}
 		err = role.Get(r.Db)

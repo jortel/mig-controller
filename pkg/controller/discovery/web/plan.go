@@ -62,9 +62,8 @@ func (h *PlanHandler) Prepare(ctx *gin.Context) int {
 func (h *PlanHandler) allow(ctx *gin.Context) int {
 	allowed, err := h.rbac.Allow(&auth.Request{
 		Namespace: h.cluster.Namespace,
-		Resources: []string{
-			auth.Namespace,
-		},
+		Groups:    []string{""},
+		Resources: []string{auth.Namespace},
 		Verbs: []string{
 			auth.GET,
 		},

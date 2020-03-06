@@ -61,6 +61,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 		return
 	}
 	request := &auth.Request{
+		Groups:    []string{""},
 		Resources: []string{auth.Pod},
 		Verbs: []string{
 			auth.LIST,

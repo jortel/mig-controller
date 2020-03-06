@@ -50,12 +50,9 @@ func (h *ClusterHandler) Prepare(ctx *gin.Context) int {
 func (h *ClusterHandler) allow(ctx *gin.Context) int {
 	allowed, err := h.rbac.Allow(&auth.Request{
 		Namespace: h.cluster.Namespace,
-		Resources: []string{
-			auth.Namespace,
-		},
-		Verbs: []string{
-			auth.GET,
-		},
+		Groups:    []string{""},
+		Resources: []string{auth.Namespace},
+		Verbs:     []string{auth.GET},
 	})
 	if err != nil {
 		Log.Trace(err)
