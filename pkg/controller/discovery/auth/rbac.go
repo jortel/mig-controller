@@ -6,7 +6,7 @@ import (
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"github.com/konveyor/mig-controller/pkg/logging"
 	"github.com/konveyor/mig-controller/pkg/settings"
-	"k8s.io/api/authentication/v1beta1"
+	auth "k8s.io/api/authentication/v1beta1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -294,18 +294,23 @@ func (r *RBAC) load() error {
 // Set the user|sa and groups.
 func (r *RBAC) authenticate() error {
 	mark := time.Now()
-	tr := v1beta1.TokenReview{
-		Spec: v1beta1.TokenReviewSpec{
-			Token: r.Token,
-		},
-	}
-	err := r.Client.Create(context.TODO(), &tr)
-	if err != nil {
-		Log.Trace(err)
-		return err
-	}
-	if !tr.Status.Authenticated {
-		return nil
+	tr, found := tokenCache.Get(r.Token)
+	if !found {
+		tr = &auth.TokenReview{
+			Spec: auth.TokenReviewSpec{
+				Token: r.Token,
+			},
+		}
+		err := r.Client.Create(context.TODO(), tr)
+		if err != nil {
+			Log.Trace(err)
+			return err
+		}
+		if tr.Status.Authenticated {
+			tokenCache.Add(r.Token, tr)
+		} else {
+			return nil
+		}
 	}
 	r.authenticated = true
 	user := tr.Status.User
