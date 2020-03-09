@@ -49,7 +49,7 @@ err := client.Get(
 // Resources.
 type Cluster = web.Cluster
 type ClusterList = web.ClusterList
-type Review = web.Review
+type RuleReview = web.RuleReview
 type Plan = web.Plan
 type PlanList = web.PlanList
 type Namespace = web.Namespace
@@ -144,7 +144,6 @@ type Client struct {
 	Token string
 	// Host <host>:<port>
 	Host string
-
 }
 
 //
@@ -230,7 +229,7 @@ func (c *Client) post(path string, resource Resource) error {
 	body, _ := json.Marshal(resource)
 	reader := bytes.NewReader(body)
 	request := &http.Request{
-		Body: ioutil.NopCloser(reader),
+		Body:   ioutil.NopCloser(reader),
 		Method: http.MethodPost,
 		Header: header,
 		URL:    c.url(path),

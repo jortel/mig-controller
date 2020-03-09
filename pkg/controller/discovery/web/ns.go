@@ -60,7 +60,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
-	request := &auth.Request{
+	request := &auth.RuleReview{
 		Groups:    []string{""},
 		Resources: []string{auth.Pod},
 		Verbs: []string{

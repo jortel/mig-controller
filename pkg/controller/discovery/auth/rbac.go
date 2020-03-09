@@ -57,8 +57,8 @@ const (
 )
 
 //
-// RBAC request.
-type Request struct {
+// RBAC rule review.
+type RuleReview struct {
 	// The k8s API groups.
 	Groups []string
 	// Resources.
@@ -73,7 +73,7 @@ type Request struct {
 
 //
 // Expand the Resources and Verbs into the `matrix`.
-func (r *Request) expand() {
+func (r *RuleReview) expand() {
 	r.matrix = Matrix{}
 	for _, group := range r.Groups {
 		for _, resource := range r.Resources {
@@ -92,7 +92,7 @@ func (r *Request) expand() {
 
 //
 // Apply the rule to the matrix.
-func (r *Request) apply(rule *rbac.PolicyRule) {
+func (r *RuleReview) apply(rule *rbac.PolicyRule) {
 	ruleMatrix := Matrix{}
 	for _, group := range rule.APIGroups {
 		for _, resource := range rule.Resources {
@@ -119,7 +119,7 @@ func (r *Request) apply(rule *rbac.PolicyRule) {
 
 //
 // Return `true` when all of the matrix items have been matched.
-func (r *Request) satisfied() bool {
+func (r *RuleReview) satisfied() bool {
 	for _, m := range r.matrix {
 		if !m.matched {
 			return false
@@ -217,7 +217,7 @@ type RBAC struct {
 
 //
 // Allow request.
-func (r *RBAC) Allow(request *Request) (bool, error) {
+func (r *RBAC) Allow(request *RuleReview) (bool, error) {
 	if r.Token == "" && Settings.Discovery.AuthOptional {
 		return true, nil
 	}
@@ -252,7 +252,7 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 
 //
 // Match the rule.
-func (r *RBAC) matchRules(request *Request, role *model.Role) bool {
+func (r *RBAC) matchRules(request *RuleReview, role *model.Role) bool {
 	rules := role.DecodeRules()
 	for _, rule := range rules {
 		request.apply(&rule)

@@ -48,7 +48,7 @@ func (h *PvcHandler) Prepare(ctx *gin.Context) int {
 //
 // RBAC authorization.
 func (h *PvcHandler) allow(ctx *gin.Context) int {
-	allowed, err := h.rbac.Allow(&auth.Request{
+	allowed, err := h.rbac.Allow(&auth.RuleReview{
 		Groups:    []string{""},
 		Resources: []string{auth.PVC},
 		Verbs: []string{

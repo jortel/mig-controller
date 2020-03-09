@@ -56,7 +56,7 @@ func (h *PodHandler) Prepare(ctx *gin.Context) int {
 //
 // RBAC authorization.
 func (h *PodHandler) allow(ctx *gin.Context) int {
-	allowed, err := h.rbac.Allow(&auth.Request{
+	allowed, err := h.rbac.Allow(&auth.RuleReview{
 		Namespace: ctx.Param("ns2"),
 		Groups:    []string{""},
 		Resources: []string{auth.Pod},
@@ -190,7 +190,7 @@ func (h *LogHandler) Prepare(ctx *gin.Context) int {
 //
 // RBAC authorization.
 func (h *LogHandler) allow(ctx *gin.Context) int {
-	allowed, err := h.rbac.Allow(&auth.Request{
+	allowed, err := h.rbac.Allow(&auth.RuleReview{
 		Namespace: ctx.Param("ns2"),
 		Groups:    []string{""},
 		Resources: []string{auth.PodLog},
