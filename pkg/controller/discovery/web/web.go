@@ -93,6 +93,11 @@ func (w *WebServer) addRoutes(r *gin.Engine) {
 				container: w.Container,
 			},
 		},
+		ReviewHandler{
+			BaseHandler: BaseHandler{
+				container: w.Container,
+			},
+		},
 		NsHandler{
 			BaseHandler: BaseHandler{
 				container: w.Container,

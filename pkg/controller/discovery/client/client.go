@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,6 +49,7 @@ err := client.Get(
 // Resources.
 type Cluster = web.Cluster
 type ClusterList = web.ClusterList
+type Review = web.Review
 type Plan = web.Plan
 type PlanList = web.PlanList
 type Namespace = web.Namespace
@@ -113,6 +115,22 @@ func (s *GetOptions) path(r Resource) string {
 }
 
 //
+// Options for Post().
+type PostOptions struct {
+	// Cluster
+	Cluster Key
+}
+
+//
+// Get the URL path for the resource.
+func (s *PostOptions) path(r Resource) string {
+	path := r.Path()
+	path = strings.Replace(path, ":ns1", s.Cluster.Namespace, 1)
+	path = strings.Replace(path, ":cluster", s.Cluster.Name, 1)
+	return path
+}
+
+//
 // REST Resource.
 type Resource interface {
 	// The URL path.
@@ -124,6 +142,9 @@ type Resource interface {
 type Client struct {
 	// Bearer token.
 	Token string
+	// Host <host>:<port>
+	Host string
+
 }
 
 //
@@ -141,26 +162,40 @@ func (c *Client) Get(r Resource, options GetOptions) error {
 }
 
 //
+// Post a resource.
+func (c *Client) Post(r Resource, options PostOptions) error {
+	path := options.path(r)
+	return c.post(path, r)
+}
+
+//
+// Get the URL.
+func (c *Client) url(path string) *liburl.URL {
+	if c.Host == "" {
+		c.Host = "localhost:8080"
+	}
+	url, _ := liburl.Parse(path)
+	if url.Host == "" {
+		url.Scheme = "http"
+		url.Host = c.Host
+	}
+
+	return url
+}
+
+//
 // Http GET
-func (c *Client) get(url string, resource Resource) error {
+func (c *Client) get(path string, resource Resource) error {
 	header := http.Header{}
 	if c.Token != "" {
 		header["Authorization"] = []string{
 			fmt.Sprintf("Bearer %s", c.Token),
 		}
 	}
-	pURL, err := liburl.Parse(url)
-	if err != nil {
-		return err
-	}
-	if pURL.Host == "" {
-		pURL.Scheme = "http"
-		pURL.Host = "localhost:8080"
-	}
 	request := &http.Request{
 		Method: http.MethodGet,
 		Header: header,
-		URL:    pURL,
+		URL:    c.url(path),
 	}
 	client := http.Client{}
 	response, err := client.Do(request)
@@ -168,6 +203,44 @@ func (c *Client) get(url string, resource Resource) error {
 		return err
 	}
 	if response.StatusCode == http.StatusOK {
+		defer response.Body.Close()
+		content, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(content, resource)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return errors.New(response.Status)
+}
+
+//
+// Http POST
+func (c *Client) post(path string, resource Resource) error {
+	header := http.Header{}
+	if c.Token != "" {
+		header["Authorization"] = []string{
+			fmt.Sprintf("Bearer %s", c.Token),
+		}
+	}
+	body, _ := json.Marshal(resource)
+	reader := bytes.NewReader(body)
+	request := &http.Request{
+		Body: ioutil.NopCloser(reader),
+		Method: http.MethodPost,
+		Header: header,
+		URL:    c.url(path),
+	}
+	client := http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode == http.StatusCreated {
 		defer response.Body.Close()
 		content, err := ioutil.ReadAll(response.Body)
 		if err != nil {

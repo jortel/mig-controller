@@ -232,6 +232,9 @@ func (r *RBAC) Allow(request *Request) (bool, error) {
 		return true, nil
 	}
 	request.expand()
+	if len(request.matrix) == 0 {
+		return false, nil
+	}
 	for _, rb := range r.roleBindings {
 		role, found := r.roles[rb.Pk()]
 		if !found {

@@ -12,6 +12,7 @@ import (
 const (
 	ClustersRoot = Root + "/clusters"
 	ClusterRoot  = ClustersRoot + "/:cluster"
+	ReviewRoot   = ClusterRoot + "/rbac/review"
 )
 
 //
@@ -122,6 +123,60 @@ func (h ClusterHandler) Get(ctx *gin.Context) {
 }
 
 //
+// RBAC review handler.
+type ReviewHandler struct {
+	BaseHandler
+}
+
+//
+// Add routes.
+func (h ReviewHandler) AddRoutes(r *gin.Engine) {
+	r.POST(ReviewRoot, h.Post)
+}
+
+//
+// Perform a RBAC review.
+func (h ReviewHandler) Post(ctx *gin.Context) {
+	status := h.Prepare(ctx)
+	if status != http.StatusOK {
+		ctx.Status(status)
+		return
+	}
+	body := &Review{
+		Groups:    []string{},
+		Resources: []string{},
+		Verbs:     []string{},
+	}
+	err := ctx.BindJSON(body)
+	if err != nil ||
+		len(body.Groups) == 0 ||
+		len(body.Resources) == 0 ||
+		len(body.Verbs) == 0 {
+		ctx.Status(http.StatusBadRequest)
+	}
+	body.Allowed, err = h.rbac.Allow(&auth.Request{
+		Groups:    body.Groups,
+		Resources: body.Resources,
+		Namespace: body.Namespace,
+		Verbs:     body.Verbs,
+	})
+
+	ctx.JSON(http.StatusCreated, body)
+}
+
+//
+// Not supported.
+func (h ReviewHandler) Get(ctx *gin.Context) {
+	ctx.Status(http.StatusMethodNotAllowed)
+}
+
+//
+// Not supported.
+func (h ReviewHandler) List(ctx *gin.Context) {
+	ctx.Status(http.StatusMethodNotAllowed)
+}
+
+//
 // Cluster REST resource.
 type Cluster struct {
 	// Cluster k8s namespace.
@@ -147,4 +202,23 @@ type ClusterList struct {
 
 func (n *ClusterList) Path() string {
 	return ClustersRoot
+}
+
+//
+// RBAC REST Resource.
+type Review struct {
+	// The k8s API groups.
+	Groups []string `json:"groups"`
+	// Resources.
+	Resources []string `json:"resources"`
+	// Namespace (optional).
+	Namespace string `json:"namespace"`
+	// Verbs
+	Verbs []string `json:"verbs"`
+	// Allowed.
+	Allowed bool `json:"allowed"`
+}
+
+func (n *Review) Path() string {
+	return ReviewRoot
 }
