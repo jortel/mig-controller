@@ -7,30 +7,25 @@ import (
 )
 
 //
-// Global cache.
+// Singleton (global) token cache.
 var tokenCache = TokenCache{
 	content: map[string]*CachedToken{},
 	ttl:     time.Second * 10,
 }
 
 //
-// Cached token.
+// Cache of tokens.
 type CachedToken struct {
-	// Bearer token.
-	token string
-	// Creation timestamp.
+	token   string
 	created time.Time
-	// Token review.
-	review *auth.TokenReview
+	review  *auth.TokenReview
 }
 
-//
-// Cache of tokens.
 type TokenCache struct {
-	// Cache content.
-	content map[string]*CachedToken
 	// Mutex.
 	mutex sync.RWMutex
+	// Cache content.
+	content map[string]*CachedToken
 	// Lifespan (time-to-live).
 	ttl time.Duration
 }

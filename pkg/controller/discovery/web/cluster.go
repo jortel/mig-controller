@@ -12,7 +12,7 @@ import (
 const (
 	ClustersRoot = Root + "/clusters"
 	ClusterRoot  = ClustersRoot + "/:cluster"
-	ReviewRoot   = ClusterRoot + "/rbac/review"
+	ReviewRoot   = ClusterRoot + "/sar"
 )
 
 //

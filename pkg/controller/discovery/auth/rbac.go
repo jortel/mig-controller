@@ -276,6 +276,9 @@ func (r *RBAC) load() error {
 		Log.Trace(err)
 		return err
 	}
+	if !r.authenticated {
+		return nil
+	}
 	err = r.buildRoleBindings()
 	if err != nil {
 		Log.Trace(err)
@@ -339,9 +342,6 @@ func (r *RBAC) buildRoleBindings() error {
 	var subject model.Subject
 	var err error
 	mark := time.Now()
-	if !r.authenticated {
-		return nil
-	}
 	if r.user != "" {
 		if _, found := AllowUsers[r.user]; found {
 			return nil
