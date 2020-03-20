@@ -49,9 +49,8 @@ func (h *ClusterHandler) Prepare(ctx *gin.Context) int {
 //
 // RBAC authorization.
 func (h *ClusterHandler) allow(ctx *gin.Context) int {
-	allowed, err := h.rbac.Allow(&auth.RuleReview{
+	allowed, err := h.rbac.Allow(&auth.Review{
 		Namespace: h.cluster.Namespace,
-		Groups:    []string{""},
 		Resources: []string{auth.Namespace},
 		Verbs:     []string{auth.GET},
 	})
@@ -142,20 +141,18 @@ func (h ReviewHandler) Post(ctx *gin.Context) {
 		ctx.Status(status)
 		return
 	}
-	body := &RuleReview{
-		Groups:    []string{},
+	body := &Review{
 		Resources: []string{},
 		Verbs:     []string{},
 	}
 	err := ctx.BindJSON(body)
 	if err != nil ||
-		len(body.Groups) == 0 ||
 		len(body.Resources) == 0 ||
 		len(body.Verbs) == 0 {
 		ctx.Status(http.StatusBadRequest)
 	}
-	body.Allowed, err = h.rbac.Allow(&auth.RuleReview{
-		Groups:    body.Groups,
+	body.Allowed, err = h.rbac.Allow(&auth.Review{
+		Group:     body.Group,
 		Resources: body.Resources,
 		Namespace: body.Namespace,
 		Verbs:     body.Verbs,
@@ -206,9 +203,9 @@ func (n *ClusterList) Path() string {
 
 //
 // RBAC REST Resource.
-type RuleReview struct {
+type Review struct {
 	// The k8s API groups.
-	Groups []string `json:"groups"`
+	Group string `json:"group"`
 	// Resources.
 	Resources []string `json:"resources"`
 	// Namespace (optional).
@@ -219,6 +216,6 @@ type RuleReview struct {
 	Allowed bool `json:"allowed"`
 }
 
-func (n *RuleReview) Path() string {
+func (n *Review) Path() string {
 	return ReviewRoot
 }

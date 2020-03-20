@@ -58,9 +58,9 @@ const (
 
 //
 // RBAC rule review.
-type RuleReview struct {
-	// The k8s API groups.
-	Groups []string
+type Review struct {
+	// The k8s API group.
+	Group string
 	// Resources.
 	Resources []string
 	// Namespace (optional).
@@ -73,38 +73,34 @@ type RuleReview struct {
 
 //
 // Expand the Resources and Verbs into the `matrix`.
-func (r *RuleReview) expand() {
+func (r *Review) expand() {
 	r.matrix = Matrix{}
-	for _, group := range r.Groups {
-		for _, resource := range r.Resources {
-			for _, verb := range r.Verbs {
-				r.matrix = append(
-					r.matrix,
-					MxItem{
-						group:    group,
-						resource: resource,
-						verb:     verb,
-					})
-			}
+	for _, resource := range r.Resources {
+		for _, verb := range r.Verbs {
+			r.matrix = append(
+				r.matrix,
+				MxItem{
+					group:    r.Group,
+					resource: resource,
+					verb:     verb,
+				})
 		}
 	}
 }
 
 //
 // Apply the rule to the matrix.
-func (r *RuleReview) apply(rule *rbac.PolicyRule) {
+func (r *Review) apply(rule *rbac.PolicyRule) {
 	ruleMatrix := Matrix{}
-	for _, group := range rule.APIGroups {
-		for _, resource := range rule.Resources {
-			for _, verb := range rule.Verbs {
-				ruleMatrix = append(
-					ruleMatrix,
-					MxItem{
-						group:    group,
-						resource: resource,
-						verb:     verb,
-					})
-			}
+	for _, resource := range rule.Resources {
+		for _, verb := range rule.Verbs {
+			ruleMatrix = append(
+				ruleMatrix,
+				MxItem{
+					group:    r.Group,
+					resource: resource,
+					verb:     verb,
+				})
 		}
 	}
 	for i := range r.matrix {
@@ -119,7 +115,7 @@ func (r *RuleReview) apply(rule *rbac.PolicyRule) {
 
 //
 // Return `true` when all of the matrix items have been matched.
-func (r *RuleReview) satisfied() bool {
+func (r *Review) satisfied() bool {
 	for _, m := range r.matrix {
 		if !m.matched {
 			return false
@@ -217,7 +213,7 @@ type RBAC struct {
 
 //
 // Allow request.
-func (r *RBAC) Allow(request *RuleReview) (bool, error) {
+func (r *RBAC) Allow(request *Review) (bool, error) {
 	if r.Token == "" && Settings.Discovery.AuthOptional {
 		return true, nil
 	}
@@ -252,7 +248,7 @@ func (r *RBAC) Allow(request *RuleReview) (bool, error) {
 
 //
 // Match the rule.
-func (r *RBAC) matchRules(request *RuleReview, role *model.Role) bool {
+func (r *RBAC) matchRules(request *Review, role *model.Role) bool {
 	rules := role.DecodeRules()
 	for _, rule := range rules {
 		request.apply(&rule)
@@ -300,23 +296,18 @@ func (r *RBAC) load() error {
 // Set the user|sa and groups.
 func (r *RBAC) authenticate() error {
 	mark := time.Now()
-	tr, found := tokenCache.Get(r.Token)
-	if !found {
-		tr = &auth.TokenReview{
-			Spec: auth.TokenReviewSpec{
-				Token: r.Token,
-			},
-		}
-		err := r.Client.Create(context.TODO(), tr)
-		if err != nil {
-			Log.Trace(err)
-			return err
-		}
-		if tr.Status.Authenticated {
-			tokenCache.Add(r.Token, tr)
-		} else {
-			return nil
-		}
+	tr := &auth.TokenReview{
+		Spec: auth.TokenReviewSpec{
+			Token: r.Token,
+		},
+	}
+	err := r.Client.Create(context.TODO(), tr)
+	if err != nil {
+		Log.Trace(err)
+		return err
+	}
+	if !tr.Status.Authenticated {
+		return nil
 	}
 	r.authenticated = true
 	user := tr.Status.User

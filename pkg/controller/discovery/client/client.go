@@ -49,7 +49,7 @@ err := client.Get(
 // Resources.
 type Cluster = web.Cluster
 type ClusterList = web.ClusterList
-type RuleReview = web.RuleReview
+type Review = web.Review
 type Plan = web.Plan
 type PlanList = web.PlanList
 type Namespace = web.Namespace

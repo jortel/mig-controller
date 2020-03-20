@@ -60,8 +60,7 @@ func (h NsHandler) List(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
-	request := &auth.RuleReview{
-		Groups:    []string{""},
+	review := &auth.Review{
 		Resources: []string{auth.Pod},
 		Verbs: []string{
 			auth.LIST,
@@ -77,9 +76,9 @@ func (h NsHandler) List(ctx *gin.Context) {
 	}
 	duration := time.Duration(0)
 	for _, m := range list {
-		request.Namespace = m.Name
+		review.Namespace = m.Name
 		mark := time.Now()
-		allow, err := h.rbac.Allow(request)
+		allow, err := h.rbac.Allow(review)
 		if err != nil {
 			Log.Trace(err)
 			ctx.Status(http.StatusInternalServerError)

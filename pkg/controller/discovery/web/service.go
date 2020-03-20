@@ -48,8 +48,7 @@ func (h *ServiceHandler) Prepare(ctx *gin.Context) int {
 //
 // RBAC authorization.
 func (h *ServiceHandler) allow(ctx *gin.Context) int {
-	allowed, err := h.rbac.Allow(&auth.RuleReview{
-		Groups:    []string{""},
+	allowed, err := h.rbac.Allow(&auth.Review{
 		Resources: []string{auth.Service},
 		Verbs: []string{
 			auth.LIST,
