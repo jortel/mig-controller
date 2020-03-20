@@ -273,6 +273,7 @@ func (r *RBAC) load() error {
 		return err
 	}
 	if !r.authenticated {
+		r.loaded = true
 		return nil
 	}
 	err = r.buildRoleBindings()
