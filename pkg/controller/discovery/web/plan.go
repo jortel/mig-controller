@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	migapi "github.com/konveyor/mig-controller/pkg/apis/migration/v1alpha1"
+	"github.com/konveyor/mig-controller/pkg/controller/discovery/auth"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
-	auth "k8s.io/api/authorization/v1"
+	migref "github.com/konveyor/mig-controller/pkg/reference"
 	"k8s.io/api/core/v1"
 	"net/http"
 	"strings"
@@ -38,10 +39,12 @@ func (h PlanHandler) AddRoutes(r *gin.Engine) {
 
 //
 // Prepare to fulfil the request.
-// Fetch the referenced plan.
-// Perform SAR authorization.
 func (h *PlanHandler) Prepare(ctx *gin.Context) int {
 	status := h.BaseHandler.Prepare(ctx)
+	if status != http.StatusOK {
+		return status
+	}
+	status = h.allow(ctx)
 	if status != http.StatusOK {
 		return status
 	}
@@ -51,37 +54,27 @@ func (h *PlanHandler) Prepare(ctx *gin.Context) int {
 			Name:      ctx.Param("plan"),
 		},
 	}
-	err := h.plan.Get(h.container.Db)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			Log.Trace(err)
-			return http.StatusInternalServerError
-		} else {
-			return http.StatusNotFound
-		}
-	}
-	status = h.allow(h.getSAR())
-	if status != http.StatusOK {
-		return status
-	}
 
 	return http.StatusOK
 }
 
-// Build the appropriate SAR object.
-// The subject is the MigPlan.
-func (h *PlanHandler) getSAR() auth.SelfSubjectAccessReview {
-	return auth.SelfSubjectAccessReview{
-		Spec: auth.SelfSubjectAccessReviewSpec{
-			ResourceAttributes: &auth.ResourceAttributes{
-				Group:     "apps",
-				Resource:  "MigPlan",
-				Namespace: h.plan.Namespace,
-				Name:      h.plan.Name,
-				Verb:      "get",
-			},
-		},
+//
+// RBAC authorization.
+func (h *PlanHandler) allow(ctx *gin.Context) int {
+	allowed, err := h.rbac.Allow(&auth.Review{
+		Namespace: h.cluster.Namespace,
+		Resource:  migref.ToKind(h.cluster),
+		Verb:      auth.GET,
+	})
+	if err != nil {
+		Log.Trace(err)
+		return http.StatusInternalServerError
 	}
+	if !allowed {
+		return http.StatusForbidden
+	}
+
+	return http.StatusOK
 }
 
 //

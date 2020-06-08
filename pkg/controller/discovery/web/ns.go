@@ -2,9 +2,11 @@ package web
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/konveyor/mig-controller/pkg/controller/discovery/auth"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"k8s.io/api/core/v1"
 	"net/http"
+	"time"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 // Namespaces (route) handler.
 type NsHandler struct {
 	// Base
-	ClusterScoped
+	BaseHandler
 }
 
 //
@@ -58,10 +60,27 @@ func (h NsHandler) List(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
+	review := &auth.Review{
+		Resource: auth.Namespace,
+		Verb:     auth.GET,
+	}
 	content := NamespaceList{
 		Count: count,
 	}
+	duration := time.Duration(0)
 	for _, m := range list {
+		review.Name = m.Name
+		mark := time.Now()
+		allow, err := h.rbac.Allow(review)
+		if err != nil {
+			Log.Trace(err)
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+		duration += time.Since(mark)
+		if !allow {
+			continue
+		}
 		podCount, err := model.Pod{
 			Base: model.Base{
 				Cluster:   h.cluster.PK,
@@ -111,19 +130,15 @@ func (h NsHandler) List(ctx *gin.Context) {
 			})
 	}
 
+	Log.Info("NS List", "auth", duration)
+
 	ctx.JSON(http.StatusOK, content)
 }
 
 //
 // Get a specific namespace on a cluster.
 func (h NsHandler) Get(ctx *gin.Context) {
-	status := h.Prepare(ctx)
-	if status != http.StatusOK {
-		ctx.Status(status)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, h.cluster.Namespace)
+	ctx.Status(http.StatusMethodNotAllowed)
 }
 
 // Namespace REST resource

@@ -19,6 +19,7 @@ package discovery
 import (
 	"context"
 	migapi "github.com/konveyor/mig-controller/pkg/apis/migration/v1alpha1"
+	"github.com/konveyor/mig-controller/pkg/controller/discovery/auth"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/container"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/model"
 	"github.com/konveyor/mig-controller/pkg/controller/discovery/web"
@@ -49,6 +50,7 @@ func init() {
 	model.Log = &log
 	container.Log = &log
 	web.Log = &log
+	auth.Log = &log
 }
 
 func Add(mgr manager.Manager) error {
@@ -83,14 +85,12 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		web:       web,
 	}
 
-	web.Start()
-
 	return &reconciler
 }
 
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	options := controller.Options{
-		MaxConcurrentReconciles: 10,
+		MaxConcurrentReconciles: 1, // TODO FIX THIS BEFORE COMMIT
 		Reconciler:              r,
 	}
 	c, err := controller.New("discovery", mgr, options)
@@ -98,6 +98,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		log.Trace(err)
 		return err
 	}
+	//
+	// Add watches.
 	err = c.Watch(
 		&source.Kind{
 			Type: &migapi.MigCluster{},
@@ -108,18 +110,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		log.Trace(err)
 		return err
 	}
-	err = c.Watch(
-		&source.Kind{
-			Type: &migapi.MigPlan{},
+	//
+	// Add the `host` cluster.
+	cluster := &migapi.MigCluster{
+		Spec: migapi.MigClusterSpec{
+			IsHostCluster: true,
 		},
-		&handler.EnqueueRequestForObject{},
-		&PlanPredicate{
-			Container: r.(*ReconcileDiscovery).container,
-		})
-	if err != nil {
-		log.Trace(err)
-		return err
 	}
+	err = r.(*ReconcileDiscovery).container.Add(
+		cluster,
+		container.Collections{
+			&container.Plan{},
+		})
+	//
+	// Start Web
+	r.(*ReconcileDiscovery).web.Start()
 
 	return nil
 }
@@ -154,7 +159,15 @@ func (r *ReconcileDiscovery) Reconcile(request reconcile.Request) (reconcile.Res
 	if !r.IsValid(cluster) {
 		return reconcile.Result{}, nil
 	}
-	err = r.container.Add(cluster)
+	err = r.container.Add(
+		cluster,
+		container.Collections{
+			&container.Namespace{},
+			&container.Service{},
+			&container.PVC{},
+			&container.Pod{},
+			&container.PV{},
+		})
 	if err != nil {
 		log.Trace(err)
 		return reQueue, nil
@@ -220,75 +233,5 @@ func (r *ClusterPredicate) Delete(e event.DeleteEvent) bool {
 }
 
 func (r *ClusterPredicate) Generic(e event.GenericEvent) bool {
-	return false
-}
-
-//
-// Plan predicate
-type PlanPredicate struct {
-	Container *container.Container
-}
-
-func (r PlanPredicate) Create(e event.CreateEvent) bool {
-	log.Reset()
-	object, cast := e.Object.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	plan := model.Plan{}
-	plan.With(object)
-	err := plan.Insert(r.Container.Db)
-	if err != nil {
-		log.Trace(err)
-	}
-
-	return false
-}
-
-func (r PlanPredicate) Update(e event.UpdateEvent) bool {
-	log.Reset()
-	o, cast := e.ObjectOld.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	n, cast := e.ObjectNew.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	changed := !reflect.DeepEqual(
-		o.Spec.SrcMigClusterRef,
-		n.Spec.SrcMigClusterRef) ||
-		!reflect.DeepEqual(
-			o.Spec.DestMigClusterRef,
-			n.Spec.DestMigClusterRef)
-	if changed {
-		plan := model.Plan{}
-		plan.With(n)
-		err := plan.Update(r.Container.Db)
-		if err != nil {
-			log.Trace(err)
-		}
-	}
-
-	return false
-}
-
-func (r *PlanPredicate) Delete(e event.DeleteEvent) bool {
-	log.Reset()
-	object, cast := e.Object.(*migapi.MigPlan)
-	if !cast {
-		return false
-	}
-	plan := model.Plan{}
-	plan.With(object)
-	err := plan.Delete(r.Container.Db)
-	if err != nil {
-		log.Trace(err)
-	}
-
-	return false
-}
-
-func (r *PlanPredicate) Generic(e event.GenericEvent) bool {
 	return false
 }
